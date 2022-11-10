@@ -22,6 +22,8 @@ print("Label probs:", probs)  # prints: [[0.9927937  0.00421068 0.00299572]]
 import torch
 from PIL import Image
 import glob
+from torchinfo import summary
+import utils
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -38,7 +40,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 model = torch.load("../models/CLIP_ResNet-50.pt")
-preprocess = torch.load("./Image_Preprocessing")
+preprocess = utils.ResNet50m_img_transform #torch.load("./CLIP_ImagePreprocessing")
+print(preprocess)
+#summary(model)
 
 #object_methods = [method_name for method_name in dir(model) if callable(getattr(model, method_name))]
 
@@ -46,11 +50,11 @@ preprocess = torch.load("./Image_Preprocessing")
 
 #print(model.get_submodule(target="visual"))
 
-images = torch.cat([preprocess(Image.open(f)).unsqueeze(0).to(device) for f in glob.iglob("./test_images/*")])
+images = torch.cat([preprocess(Image.open(f)).unsqueeze(0).to(device) for f in glob.iglob("./.test_images/*")])
 
-names = [f for f in glob.iglob("./test_images/*")]
+names = [f for f in glob.iglob("./.test_images/*")]
 
-sketch = preprocess(Image.open("./test_sketches/n02691156_58-1.png")).unsqueeze(0).to(device)
+sketch = preprocess(Image.open("./.test_sketches/n02691156_58-1.png")).unsqueeze(0).to(device)
 
 with torch.no_grad():
     image_features = model(images)
