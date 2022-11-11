@@ -90,6 +90,7 @@ msg = "depending on the option corresponding data will be downloaded"
 
 parser = argparse.ArgumentParser(description=msg)
 
+#may be add TU-Berlin sketches only later
 parser.add_argument("--sketchy_download", action="store_true", help="downloads sketchy dataset with info and svg")
 
 args = parser.parse_args()

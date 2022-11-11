@@ -89,7 +89,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
 
 # command line tool
 
-msg = "--epochs"
+msg = "TODO"
 
 parser = argparse.ArgumentParser(description=msg)
 
