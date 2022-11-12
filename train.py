@@ -8,7 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 import utils
-import data_setup
+import data_preparation
 import models
 import evaluation
 
@@ -130,10 +130,17 @@ if inference_only:
     #save
 
 else:
+    # options have to be added
+    train_dataset, test_dataset = data_preparation.get_datasets(size=0.5)
+
+    train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
+    test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
+
 
     eval_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer)
 
     param_dict = {"model": MODEL, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE}
+    data_dict = train_dataset.state_dict
 
     if with_inference:
         print("inference TODO")
