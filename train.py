@@ -32,7 +32,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
     test_top10 = 0
     test_avg_rank = 0
 
-    for epoch in tqdm(range(epochs)):
+    for epoch in tqdm(range(epochs), desc="Epochs"):
 
         train_loss = 0
         test_loss = 0
@@ -40,7 +40,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         # training batch loop
         model.train()
         
-        for batch, (sketch, pos_img, neg_img) in enumerate(train_dataloader):
+        for batch, (sketch, pos_img, neg_img) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
 
             sketch, pos_img, neg_img = sketch.to(device), pos_img.to(device), neg_img.to(device)
 
@@ -64,7 +64,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         model.eval()
         with torch.inference_mode():
 
-            for batch, (sketch, pos_img, neg_img) in enumerate(test_dataloader):
+            for batch, (sketch, pos_img, neg_img) in enumerate(tqdm(test_dataloader, desc="Evaluation", leave=False)):
 
                 sketch, pos_img, neg_img = sketch.to(device), pos_img.to(device), neg_img.to(device)
 
@@ -96,8 +96,8 @@ parser = argparse.ArgumentParser(description=msg)
 parser.add_argument("-e", "--epochs", nargs=1, type=int, default=10, help="Set number of epochs for training - default:10")
 parser.add_argument("-b", "--batch_size", nargs=1, type=int, default=32, help="Set batch_size for training - default:32")
 parser.add_argument("-l", "--learning_rate", nargs=1, type=float, default=0.01, help="Set learning rate - default:0.01")
-parser.add_argument("-m", "--model", nargs=1, type=str, default='ResNet50', choices=['ResNet50'], help="Choose a model - default:ResNet50 WOP")
-parser.add_argument("-d", "--dataset", nargs=1, type=str, default='Sketchy', choices=['SketchyS', 'SketchyL'], help="Choose a dataset - default:Sketchy WOP")
+parser.add_argument("-m", "--model", nargs=1, type=str, default='ResNet50m', choices=['ResNet50m'], help="Choose a model - default:ResNet50m WOP")
+parser.add_argument("-d", "--dataset", nargs=1, type=str, default='SketchyS', choices=['SketchyS', 'SketchyL'], help="Choose a dataset - default:Sketchy WOP")
 parser.add_argument("--evaluation", action="store_true", help="If set extended evaluation will be executed after training WOP")
 parser.add_argument("--inference_only", action="store_true", help="If set inference with full evaluation will be executed without training WOP")
 
@@ -114,14 +114,14 @@ with_inference = args.evaluation
 inference_only = args.inference_only
 
 
-model_path = Path(f"models/{MODEL}.pth")
-model = torch.load(model_path)
+model = utils.load_model("ResNet50m.pth")
 model = model.to(device)
 print(f'model {MODEL} loaded')
 
 inference_dict = {}
-eval_dict = {}
+training_dict = {}
 param_dict = {}
+data_dict= {}
 
 if inference_only:
     #make inference
@@ -133,11 +133,15 @@ else:
     # options have to be added
     train_dataset, test_dataset = data_preparation.get_datasets(size=0.5)
 
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
+    train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count() - dataset already suffled by sklearn.train_test_split
     test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
 
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE)
 
-    eval_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer)
+    loss_fn = utils.triplet_loss
+
+
+    training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer)
 
     param_dict = {"model": MODEL, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE}
     data_dict = train_dataset.state_dict
@@ -146,3 +150,4 @@ else:
         print("inference TODO")
 
     #save
+    utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)

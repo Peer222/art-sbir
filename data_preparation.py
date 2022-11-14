@@ -139,3 +139,10 @@ def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png',
 
     return train_dataset, test_dataset
 
+
+set = SketchyDatasetV1(size=0.1)
+
+tuple = set.__getitem__(1)
+
+print(utils.triplet_euclidean_loss(tuple[0], tuple[1], tuple[2]))
+print(utils.triplet_euclidean_loss2(tuple[0], tuple[1], tuple[2]))
