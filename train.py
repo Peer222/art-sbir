@@ -79,7 +79,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         train_losses.append(train_loss / len(train_dataloader))
         test_losses.append(test_loss / len(test_dataloader))
 
-        print(f"Epoch {epoch+1} - Train loss: {train_losses[epoch]:.3f} | Test loss: {test_losses[epoch]}")
+        print(f"Epoch {epoch+1} - Train loss: {train_losses[epoch]:.4f} | Test loss: {test_losses[epoch]:.4f}")
 
     end_time = timer()
     training_time = end_time - start_time
@@ -93,11 +93,11 @@ msg = "TODO"
 
 parser = argparse.ArgumentParser(description=msg)
 
-parser.add_argument("-e", "--epochs", nargs=1, type=int, default=10, help="Set number of epochs for training - default:10")
-parser.add_argument("-b", "--batch_size", nargs=1, type=int, default=32, help="Set batch_size for training - default:32")
-parser.add_argument("-l", "--learning_rate", nargs=1, type=float, default=0.01, help="Set learning rate - default:0.01")
-parser.add_argument("-m", "--model", nargs=1, type=str, default='ResNet50m', choices=['ResNet50m'], help="Choose a model - default:ResNet50m WOP")
-parser.add_argument("-d", "--dataset", nargs=1, type=str, default='SketchyS', choices=['SketchyS', 'SketchyL'], help="Choose a dataset - default:SketchyS WOP")
+parser.add_argument("-e", "--epochs", type=int, default=3, help="Set number of epochs for training - default:10")
+parser.add_argument("-b", "--batch_size", type=int, default=32, help="Set batch_size for training - default:32")
+parser.add_argument("-l", "--learning_rate", type=float, default=0.01, help="Set learning rate - default:0.01")
+parser.add_argument("-m", "--model", type=str, default='CLIP_ResNet-50.pt', choices=['CLIP_ResNet-50.pt, ResNet50m.pth'], help="Choose a model - default:ResNet50m WOP")
+parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy, SketchyS', 'SketchyL'], help="Choose a dataset - default:SketchyS WOP")
 parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training WOP")
 
 args = parser.parse_args()
@@ -111,9 +111,9 @@ DATASET = args.dataset
 
 with_inference = args.inference
 
-model = utils.load_model("ResNet50m.pth")
+model = utils.load_model(MODEL)
+utils.freeze_layers(model)
 model = model.to(device)
-print(f'model {MODEL} loaded')
 
 inference_dict = {}
 training_dict = {}
@@ -122,14 +122,14 @@ data_dict= {}
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(size=0.5)
+train_dataset, test_dataset = data_preparation.get_datasets(size=0.07)
 
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count() - dataset already suffled by sklearn.train_test_split
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
 
 optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)
 
-loss_fn = utils.triplet_loss
+loss_fn = utils.triplet_euclidean_loss
 
 
 training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer)
@@ -137,10 +137,7 @@ training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, 
 param_dict = {"model": MODEL, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE}
 data_dict = train_dataset.state_dict
 
-if with_inference:
-    print("inference TODO")
-
-    inference_dict = inference.run_inference(model, test_dataset)
+if with_inference: inference_dict = inference.run_inference(model, test_dataset)
 
 #save
 utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)

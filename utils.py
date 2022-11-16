@@ -2,7 +2,9 @@ from pathlib import Path
 from typing import Dict
 from datetime import datetime
 import json
+import csv
 from PIL import Image
+import pandas as pd
 from typing import List
 
 import torch
@@ -12,6 +14,7 @@ from torch import nn
 from torchinfo import summary
 
 import models
+import data_preparation
 
 def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
@@ -79,12 +82,17 @@ def load_model(name:str) -> nn.Module:
 # saves model and related parameters and results
 def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dict:Dict={}, inference_dict:Dict={}) -> None:
     date_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    model_name = f"{model.__class__.__name__}_{data_dict['dataset']}_{date_time}"
-    suffix = "pth"
-    model_path = Path("models") / f"{model_name}.{suffix}"
 
-    torch.save(model.state_dict(), model_path)
-    print(f"Model saved as {model_name}.{suffix}")
+    model_name = f"{model.__class__.__name__}_{data_dict['dataset']}_{date_time}"
+    # just saves model if it was trained before
+    if training_dict:
+        suffix = "pth"
+        model_path = Path("models") / f"{model_name}.{suffix}"
+
+        torch.save(model.state_dict(), model_path)
+        print(f"Model saved as {model_name}.{suffix}")
+    else:
+        print("No model saved")
 
     result_path = Path("results")
     if not result_path.is_dir(): result_path.mkdir(parents=True, exist_ok=True)
@@ -106,3 +114,32 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
         json.dump(inference_dict, f, indent=4)
 
     print(f"Data saved in {str(result_path)}")
+
+
+
+def load_image_features(folder_name:str, transform=utils.ResNet50m_img_transform) -> Tuple[Dataset, torch.Tensor]:
+    path = Path("data/image_features") / folder_name
+    image_paths = list(pd.read_csv(path / "image_paths.csv", header=None).values)
+    image_paths = [Path(img_path[0]) for img_path in image_paths]
+    image_features = pd.read_csv(path / "image_features.csv", header=None).values
+    return data_preparation.InferenceDataset(image_paths, transform), torch.from_numpy(image_features)
+
+def save_image_features(model_name:str, dataset_name:str, inference_dataset, image_features) -> None:
+    feature_path = Path("data/image_features")
+    if not feature_path.is_dir(): feature_path.mkdir(parents=True, exist_ok=True)
+
+    date_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    feature_path = feature_path / f"{model_name}_{dataset_name}_{date_time}"
+    feature_path.mkdir(parents=True, exist_ok=True)
+
+    str_paths = [ [str(path)] for path in inference_dataset.image_paths]
+    with open(feature_path / "image_paths.csv", 'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(str_paths)
+        print(f"Image paths saved in {feature_path / 'image_paths.csv'}")
+
+    with open(feature_path / "image_features.csv", 'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(image_features.numpy())
+
+    print(f"Image features saved in {feature_path / 'image_features.csv'}")

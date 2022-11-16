@@ -1,5 +1,5 @@
 from pathlib import Path
-import csv
+import argparse
 from datetime import datetime
 from tqdm.auto import tqdm
 from timeit import default_timer as timer
@@ -9,7 +9,6 @@ import random
 from PIL import Image
 
 import numpy as np
-import pandas as pd
 
 import torch
 from torch.utils.data import DataLoader
@@ -27,37 +26,34 @@ def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch
 
     sketch_name = re.split('-', sketch_path.stem)[0]
     pos_img_index = utils.find_image_index(image_paths, sketch_name)
+    if pos_img_index < 0:
+        print(f"No image found: {sketch_path} | {sketch_name}")
+        return len(image_paths)
 
     distances = utils.euclidean_distance(sketch_feature, image_features)
-    _, indices = distances.topk(len(image_paths), largest=False)
+    _, indices = distances.topk(len(image_features), largest=False)
 
-    return (indices == pos_img_index).nonzero().squeeze().item()
+    try:
+        ranking = (indices == pos_img_index).nonzero().squeeze().item()
+    except:
+        # in case multiple images exist for a sketch
+        ranking = (indices == pos_img_index).nonzero().squeeze()[0].item()
+        print(f"Multiple images found: {sketch_path}")
+    return ranking
 
 # just one sketch per call
-def get_topk_images(k:int, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor) -> List[Tuple[Path, float]]:
+def get_topk_images(k:int, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor) -> List[Tuple[str, float]]:
     distances = utils.euclidean_distance(sketch_feature, image_features)
     values, indices = distances.topk(k, largest=False)
 
-    image_paths = [image_paths[i] for i in indices]
+    image_paths = [str(image_paths[i]) for i in indices]
     values = [value.item() for value in values]
     return list(zip(image_paths, values))
 
 
 def compute_image_features(model, dataset) -> Tuple[Dataset, torch.Tensor]:
-    feature_path = Path("data/image_features")
-    if not feature_path.is_dir(): feature_path.mkdir(parents=True, exist_ok=True)
-
-    date_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    feature_path = feature_path / f"{model.__class__.__name__}_{dataset.state_dict['dataset']}_{date_time}"
-    feature_path.mkdir(parents=True, exist_ok=True)
 
     inference_dataset = data_preparation.InferenceDataset(dataset.photo_paths, dataset.transform)
-
-    str_paths = [ [str(path)] for path in inference_dataset.image_paths]
-    with open(feature_path / "image_paths.csv", 'w') as f:
-        writer = csv.writer(f)
-        writer.writerows(str_paths)
-        print(f"Image paths saved in {feature_path / 'image_paths.csv'}")
 
     dataloader = DataLoader(dataset=inference_dataset, batch_size=50, num_workers=0, shuffle=False)
 
@@ -72,21 +68,10 @@ def compute_image_features(model, dataset) -> Tuple[Dataset, torch.Tensor]:
 
     image_features = image_features.cpu()
 
-    with open(feature_path / "image_features.csv", 'w') as f:
-        writer = csv.writer(f)
-        writer.writerows(image_features.numpy())
-
-    print(f"Image features saved in {feature_path / 'image_features.csv'}")
+    utils.save_image_features(model.__class__.__name__, dataset.state_dict['dataset'], inference_dataset, image_features)
 
     return inference_dataset, image_features
 
-
-def load_image_features(folder_name:str, transform=utils.ResNet50m_img_transform) -> Tuple[Dataset, torch.Tensor]:
-    path = Path("data/image_features") / folder_name
-    image_paths = list(pd.read_csv(path / "image_paths.csv").values)
-    image_paths = [Path(img_path[0]) for img_path in image_paths]
-    image_features = pd.read_csv(path / "image_features.csv").values
-    return data_preparation.InferenceDataset(image_paths, transform), torch.from_numpy(image_features)
 
 # dataset: test data, folder_name: if specified image_features will be loaded from file instead of computed
 def run_inference(model, dataset, folder_name:str=None) -> Dict:
@@ -94,7 +79,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     inference_dataset, image_features = None, None
     if folder_name:
-        inference_dataset, image_features = load_image_features(folder_name)
+        inference_dataset, image_features = utils.load_image_features(folder_name)
     else:
         inference_dataset, image_features = compute_image_features(model, dataset)
 
@@ -105,23 +90,24 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     k = 10
     topk_acc = np.zeros(k)
 
-    retrieval_samples = None
+    retrieval_samples = []
     random_indices = [random.randrange(0, len(dataset)) for _ in range(5)]
     model.to(device)
     model.eval()
     with torch.inference_mode():
         # because shuffle=False and batch_size = 1 i is the index of the sketch path in dataset
-        for i, sketch in enumerate(tqdm(dataloader, desc="Inference")):
+        for i, (sketch, _, _) in enumerate(tqdm(dataloader, desc="Inference")):
             sketch_feature = model(sketch.to(device))
 
             rank = get_ranking_position(dataset.sketch_paths[i], inference_dataset.image_paths, sketch_feature, image_features)
 
-            avg_rank += rank
-            mean_reciprocal_rank += 1/rank
+            # rank starts at 0
+            avg_rank += rank + 1
+            mean_reciprocal_rank += 1/(rank + 1)
             if rank < 10: topk_acc[rank:] += 1
 
             if random_indices.count(i) > 0:
-                retrieval_samples.append({dataset.sketch_paths[i]: get_topk_images(10, inference_dataset.image_paths, sketch_feature, image_features)})
+                retrieval_samples.append({str(dataset.sketch_paths[i]): get_topk_images(k, inference_dataset.image_paths, sketch_feature, image_features)})
 
     avg_rank /= len(inference_dataset)
     mean_reciprocal_rank /= len(inference_dataset)
@@ -129,17 +115,27 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     time = timer() - start_time
 
-    return {"avg_rank": avg_rank, "mean_reciprocal_rank": mean_reciprocal_rank, "topk_acc": topk_acc, "retrieval_samples": retrieval_samples, "size": len(inference_dataset), "inference_time": time}
+    return {"avg_rank": avg_rank, "mean_reciprocal_rank": mean_reciprocal_rank, "topk_acc": list(topk_acc), "retrieval_samples": retrieval_samples, "size": len(inference_dataset), "inference_time": time}
 
-"""
-data, image_features = load_image_features("ModifiedResNet_SketchyDatasetV1_2022-11-15_17-27")
-model = utils.load_model("CLIP_ResNet-50.pt")
-sketch_feature = model(utils.ResNet50m_img_transform(Image.open("data/sketchy/sketches_png/airplane/n02691156_10153-1.png")).unsqueeze(0))
-
-print(get_ranking_position("data/sketchy/sketches_png/airplane/n02691156_10153-1.png", data.image_paths, sketch_feature, image_features))
-#print(get_topk_images(5, data.image_paths, sketch_feature, image_features))
-"""
 
 if __name__ == "__main__":
     # command line tool to run inference only
-    pass
+    parser = argparse.ArgumentParser(description="TODO")
+
+    parser.add_argument("-m", "--model", type=str, required=True, help="file name of model in models/")
+    parser.add_argument("-f", "--folder_name", type=str, required=True, help="corresponding folder in data/image_features/")
+    
+    args = parser.parse_args()
+
+    model = utils.load_model(args.model)
+
+    dataset_name = re.findall("\w+_(\w+)_\w+", args.folder_name)[0]
+
+    dataset = None
+    if dataset_name == "SketchyDatasetV1": _, dataset = data_preparation.get_datasets(size=0.07) #test dataset
+
+    if not dataset: raise ValueError("no dataset found")
+
+    inference_dict = run_inference(model, dataset, args.folder_name)
+
+    utils.save_model(model=model, data_dict=dataset.state_dict, inference_dict=inference_dict)

@@ -41,7 +41,7 @@ class RetrievalDataset(Dataset):
     # no random transformation allowed because sketch/ image pairs
     # sketch/img format: png/svg/jpg, img type: photos or drawings?, mode: test or train, split_ratio: [0,1], seed not for test train split
     def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), 
-                mode="train", split_ratio=0.2, size=0.1, seed=42) -> None:
+                mode="train", split_ratio=0.1, size=0.1, seed=42) -> None:
         super().__init__()
         random.seed(seed)
 
@@ -102,7 +102,7 @@ class RetrievalDataset(Dataset):
     @property
     def state_dict(self) -> Dict:
         return {"dataset": f"{self.__class__.__name__}", "size": self.size, "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format, "sketch_format": self.sketch_format, 
-                "seed": self.seed, "split_ratio": self.split_ratio, "mode": self.mode, "transform": self.transform}
+                "seed": self.seed, "split_ratio": self.split_ratio, "mode": self.mode, "transform": str(self.transform)}
 
 # sketchy data prep
 
