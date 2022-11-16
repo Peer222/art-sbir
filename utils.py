@@ -28,6 +28,9 @@ ResNet50m_img_transform = transforms.Compose([
     transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
 ])
 
+def freeze_layers(model):
+    pass
+
 
 # loss
 # https://pytorch.org/docs/stable/generated/torch.nn.TripletMarginWithDistanceLoss.html#torch.nn.TripletMarginWithDistanceLoss
@@ -97,3 +100,6 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
         json.dump(inference_dict, f, indent=4)
 
     print(f"Data saved in {str(result_path)}")
+
+model = load_model("CLIP_ResNet-50.pt")
+print(model.parameters())

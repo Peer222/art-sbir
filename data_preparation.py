@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 import visualization
 import utils
 
-# provides interface for loading duplicate free image paths with corresponding images (used in utils.compute_image_features)
+# provides interface for loading duplicate free image paths with corresponding images (used in inference.compute_image_features)
 class InferenceDataset(Dataset):
 
     def __init__(self, image_paths: List[Path], transform=transforms.ToTensor()):

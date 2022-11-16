@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import utils
 import data_preparation
 import models
-import evaluation
+import inference
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -104,7 +104,7 @@ args = parser.parse_args()
 
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size
-LEARNING_RATE = args.learning_rate # 5 × 10−4 used by clip
+LEARNING_RATE = args.learning_rate # 5 * 10-4 used by clip
 
 MODEL = args.model
 DATASET = args.dataset
@@ -139,6 +139,8 @@ data_dict = train_dataset.state_dict
 
 if with_inference:
     print("inference TODO")
+
+    inference_dict = inference.run_inference(model, test_dataset)
 
 #save
 utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)
