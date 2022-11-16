@@ -29,7 +29,13 @@ ResNet50m_img_transform = transforms.Compose([
 ])
 
 def freeze_layers(model):
-    pass
+    for param in model.parameters():
+        param.requires_grad = False
+
+    #for param in model.layer4.parameters():
+    #    param.requires_grad = True
+    for param in model.attnpool.parameters():
+        param.requires_grad = True
 
 
 # loss
@@ -100,6 +106,3 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
         json.dump(inference_dict, f, indent=4)
 
     print(f"Data saved in {str(result_path)}")
-
-model = load_model("CLIP_ResNet-50.pt")
-print(model.parameters())
