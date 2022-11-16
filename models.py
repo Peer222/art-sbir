@@ -241,7 +241,8 @@ class VisionTransformer(nn.Module):
 
         return x
 
-
+# converting to float16 can speed up training 
+# https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/index.html
 def convert_weights(model: nn.Module):
     """Convert applicable model parameters to fp16"""
 

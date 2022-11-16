@@ -25,6 +25,8 @@ import glob
 from torchinfo import summary
 import utils
 
+import inference
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 #import clip
@@ -39,9 +41,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 #torch.save(model, "../models/CLIP_ResNet-50.pt")
 
 
-model = torch.load("../models/CLIP_ResNet-50.pt")
+model = utils.load_model("CLIP_ResNet-50.pt")
 preprocess = utils.ResNet50m_img_transform #torch.load("./CLIP_ImagePreprocessing")
-print(preprocess)
+#print(preprocess)
 #summary(model)
 
 #object_methods = [method_name for method_name in dir(model) if callable(getattr(model, method_name))]
@@ -50,20 +52,23 @@ print(preprocess)
 
 #print(model.get_submodule(target="visual"))
 
-images = torch.cat([preprocess(Image.open(f)).unsqueeze(0).to(device) for f in glob.iglob("./.test_images/*")])
+images = torch.cat([preprocess(Image.open(f)).unsqueeze(0).to(device) for f in glob.iglob("./test_images/*")])
 
-names = [f for f in glob.iglob("./.test_images/*")]
+names = [f for f in glob.iglob("./test_images/*")]
 
-sketch = preprocess(Image.open("./.test_sketches/n02691156_58-1.png")).unsqueeze(0).to(device)
+sketch = torch.cat([preprocess(Image.open("./test_images/n02391049_9960.jpg")).unsqueeze(0).to(device), preprocess(Image.open("./test_images/n02391049_9960.jpg")).unsqueeze(0).to(device)])
 
 with torch.no_grad():
     image_features = model(images)
     sketch_features = model(sketch)
 
+    print("distances")
+    print(inference.top_k_accuracy(0, [], sketch_features, [], image_features))
+
     sketch_features /= sketch_features.norm(dim=-1, keepdim=True)
     image_features /= image_features.norm(dim=-1, keepdim=True)
     similarity = (100.0 * sketch_features @ image_features.T).softmax(dim=-1)
-    values, indices = similarity[0].topk(8)
+    values, indices = similarity[0].topk(5)
 
     # Print the result
     print("\nTop predictions:\n")

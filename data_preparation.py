@@ -14,13 +14,34 @@ from sklearn.model_selection import train_test_split
 import visualization
 import utils
 
+# provides interface for loading duplicate free image paths with corresponding images (used in utils.compute_image_features)
+class InferenceDataset(Dataset):
+
+    def __init__(self, image_paths: List[Path], transform=transforms.ToTensor()):
+        super().__init__()
+
+        self.transform = transform
+        self.image_paths = list( dict.fromkeys(image_paths) )
+        self.image_paths.sort()
+
+    def load_image(self, idx:int) -> Image.Image:
+        return Image.open(self.image_paths[idx])
+
+    def __len__(self) -> int:
+        return len(self.image_paths)
+
+    def __getitem__(self, idx:int) -> torch.Tensor:
+        img = Image.open(self.image_paths[idx])
+        return self.transform(img)
+
+
 # abstract base class for specific datasets
 class RetrievalDataset(Dataset):
 
     # no random transformation allowed because sketch/ image pairs
     # sketch/img format: png/svg/jpg, img type: photos or drawings?, mode: test or train, split_ratio: [0,1], seed not for test train split
     def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), 
-                mode="train", split_ratio=0.2, size=1.0, seed=42) -> None:
+                mode="train", split_ratio=0.2, size=0.1, seed=42) -> None:
         super().__init__()
         random.seed(seed)
 
@@ -138,11 +159,3 @@ def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png',
         test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, utils.ResNet50m_img_transform, 'test', split_ratio, size, seed)
 
     return train_dataset, test_dataset
-
-
-set = SketchyDatasetV1(size=0.1)
-
-tuple = set.__getitem__(1)
-
-print(utils.triplet_euclidean_loss(tuple[0], tuple[1], tuple[2]))
-print(utils.triplet_euclidean_loss2(tuple[0], tuple[1], tuple[2]))

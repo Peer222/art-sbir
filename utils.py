@@ -2,12 +2,21 @@ from pathlib import Path
 from typing import Dict
 from datetime import datetime
 import json
+from PIL import Image
+from typing import List
 
 import torch
 from torchvision import transforms
 from torch import nn
 
+from torchinfo import summary
+
 import models
+
+def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
+    compare = lambda path: path.stem == sketch_name
+    index, _ = next(((idx, path) for idx, path in enumerate(image_paths) if compare(path)), (-1,None))
+    return index
 
 # transformations
 
@@ -23,16 +32,21 @@ ResNet50m_img_transform = transforms.Compose([
 # loss
 # https://pytorch.org/docs/stable/generated/torch.nn.TripletMarginWithDistanceLoss.html#torch.nn.TripletMarginWithDistanceLoss
 
-MARGIN = 0.2 # Sketching without Worrying
+cosine_distance = nn.CosineSimilarity(dim=1) #not tested
 
+euclidean_distance = nn.PairwiseDistance(p=2, keepdim=False)
+"""
 # default distance function for triplet margin loss (eventually the dimension has to be adapted)
 def euclidean_distance(t1:torch.Tensor, t2:torch.Tensor) -> float:
     print(torch.sum( torch.pow(t2 - t1, 2), dim=1))
     return torch.sqrt(torch.sum( torch.pow(t2 - t1, 2), dim=2))
+"""
+
+MARGIN = 0.2 # Sketching without Worrying
 
 #triplet_euclidean_loss = nn.TripletMarginWithDistanceLoss(margin=MARGIN, distance_function=euclidean_distance)
-
 triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
+
 
 # model saver and loader
 
@@ -44,7 +58,7 @@ def load_model(name:str) -> nn.Module:
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
-        model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024, heads=4, input_resolution=224, width=64)
+        model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024, heads=8, input_resolution=224, width=64) # 2048 has to be divisible by heads - text encoder used 8
         model.load_state_dict(loaded)
     else:
         print("Model completely loaded from file")
@@ -53,6 +67,7 @@ def load_model(name:str) -> nn.Module:
     print(f"Model {name} loaded")
     return model
 
+# saves model and related parameters and results
 def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dict:Dict={}, inference_dict:Dict={}) -> None:
     date_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
     model_name = f"{model.__class__.__name__}_{data_dict['dataset']}_{date_time}"
@@ -82,7 +97,3 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
         json.dump(inference_dict, f, indent=4)
 
     print(f"Data saved in {str(result_path)}")
-
-model = load_model("ResNet50m.pth")
-save_model(model, {'dataset':"test"})
-#model2 = load_model("CLIP_ResNet-50.pt")
