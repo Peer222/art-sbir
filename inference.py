@@ -80,6 +80,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     inference_dataset, image_features = None, None
     if folder_name:
         inference_dataset, image_features = utils.load_image_features(folder_name)
+        print("Image features loaded from file")
     else:
         inference_dataset, image_features = compute_image_features(model, dataset)
 
@@ -124,6 +125,8 @@ if __name__ == "__main__":
 
     parser.add_argument("-m", "--model", type=str, required=True, help="file name of model in models/")
     parser.add_argument("-f", "--folder_name", type=str, required=True, help="corresponding folder in data/image_features/")
+    parser.add_argument("-d", "--dataset", type=str, default="SketchyDatasetV1", help="corresponding folder in data/image_features/")
+    parser.add_argument("-s", "--dsize", type=float, default=0.01, help="fraction of elements used from dataset")
     
     args = parser.parse_args()
 
@@ -132,7 +135,7 @@ if __name__ == "__main__":
     dataset_name = re.findall("\w+_(\w+)_\w+", args.folder_name)[0]
 
     dataset = None
-    if dataset_name == "SketchyDatasetV1": _, dataset = data_preparation.get_datasets(size=0.07) #test dataset
+    if dataset_name == args.dataset: _, dataset = data_preparation.get_datasets(size=args.dsize) #test dataset
 
     if not dataset: raise ValueError("no dataset found")
 

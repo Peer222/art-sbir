@@ -27,7 +27,7 @@ def show_triplets(triplets, filename:Path=None) -> None:
     fig = plt.figure(figsize=(9, 3 * len(triplets)))
 
     rows, cols = len(triplets), 3
-    print(rows)
+
     titles = ["Sketch", "Matching image", "Non-matching image"]
 
     for i, tuple in enumerate(triplets):

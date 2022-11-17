@@ -14,6 +14,8 @@ import inference
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+print(device)
+
 BATCH_SIZE=32
 EPOCHS=5
 LEARNING_RATE=0.01
@@ -76,10 +78,10 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
 
                 test_loss += loss
 
-        train_losses.append(train_loss / len(train_dataloader))
-        test_losses.append(test_loss / len(test_dataloader))
+        train_losses.append(train_loss.item() / len(train_dataloader))
+        test_losses.append(test_loss.item() / len(test_dataloader))
 
-        print(f"Epoch {epoch+1} - Train loss: {train_losses[epoch]:.4f} | Test loss: {test_losses[epoch]:.4f}")
+        print(f"Epoch {epoch+1} - Train loss: {train_losses[epoch]:.5f} | Test loss: {test_losses[epoch]:.5f}")
 
     end_time = timer()
     training_time = end_time - start_time
@@ -93,7 +95,7 @@ msg = "TODO"
 
 parser = argparse.ArgumentParser(description=msg)
 
-parser.add_argument("-e", "--epochs", type=int, default=3, help="Set number of epochs for training - default:10")
+parser.add_argument("-e", "--epochs", type=int, default=1, help="Set number of epochs for training - default:10")
 parser.add_argument("-b", "--batch_size", type=int, default=32, help="Set batch_size for training - default:32")
 parser.add_argument("-l", "--learning_rate", type=float, default=0.01, help="Set learning rate - default:0.01")
 parser.add_argument("-m", "--model", type=str, default='CLIP_ResNet-50.pt', choices=['CLIP_ResNet-50.pt, ResNet50m.pth'], help="Choose a model - default:ResNet50m WOP")
@@ -104,7 +106,7 @@ args = parser.parse_args()
 
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size
-LEARNING_RATE = args.learning_rate # 5 * 10-4 used by clip
+LEARNING_RATE = args.learning_rate # 5 * 10-4 used by clip with adam
 
 MODEL = args.model
 DATASET = args.dataset
@@ -122,9 +124,9 @@ data_dict= {}
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(size=0.07)
+train_dataset, test_dataset = data_preparation.get_datasets(size=0.005)
 
-train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count() - dataset already suffled by sklearn.train_test_split
+train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
 
 optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)

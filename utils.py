@@ -5,7 +5,7 @@ import json
 import csv
 from PIL import Image
 import pandas as pd
-from typing import List
+from typing import List, Tuple, Dict
 
 import torch
 from torchvision import transforms
@@ -70,7 +70,8 @@ def load_model(name:str) -> nn.Module:
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
-        model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024, heads=8, input_resolution=224, width=64) # 2048 has to be divisible by heads - text encoder used 8
+        #model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024, heads=8, input_resolution=224, width=64) # 2048 has to be divisible by heads - text encoder used 8
+        model = torch.load(Path("models/CLIP_ResNet-50.pt"))
         model.load_state_dict(loaded)
     else:
         print("Model completely loaded from file")
@@ -117,7 +118,7 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
 
 
 
-def load_image_features(folder_name:str, transform=utils.ResNet50m_img_transform) -> Tuple[Dataset, torch.Tensor]:
+def load_image_features(folder_name:str, transform=ResNet50m_img_transform) -> Tuple[any, torch.Tensor]:
     path = Path("data/image_features") / folder_name
     image_paths = list(pd.read_csv(path / "image_paths.csv", header=None).values)
     image_paths = [Path(img_path[0]) for img_path in image_paths]
