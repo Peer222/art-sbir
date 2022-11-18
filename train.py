@@ -16,11 +16,6 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 print(device)
 
-BATCH_SIZE=32
-EPOCHS=5
-LEARNING_RATE=0.01
-
-
 def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test_dataloader:DataLoader, loss_fn, optimizer):
 
     start_time = timer()
@@ -91,17 +86,17 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
 
 # command line tool
 
-msg = "TODO"
+msg = "Starts training a model"
 
 parser = argparse.ArgumentParser(description=msg)
 
 parser.add_argument("-e", "--epochs", type=int, default=1, help="Set number of epochs for training - default:10")
 parser.add_argument("-b", "--batch_size", type=int, default=32, help="Set batch_size for training - default:32")
 parser.add_argument("-l", "--learning_rate", type=float, default=0.01, help="Set learning rate - default:0.01")
-parser.add_argument("-m", "--model", type=str, default='CLIP_ResNet-50.pt', choices=['CLIP_ResNet-50.pt, ResNet50m.pth'], help="Choose a model - default:ResNet50m WOP")
-parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy'], help="Choose a dataset - default:Sketchy WOP")
-parser.add_argument("-s", "-dsize", type=float, default=1.0, help="Fraction of dataset used during training/testing")
-parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training WOP")
+parser.add_argument("-m", "--model", type=str, default='openResNet50m.pth', help="Choose a model - default:openResNet50m.pth")
+parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy', 'Kaggle'], help="Choose a dataset")
+parser.add_argument("-s", "-dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
+parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
 
 args = parser.parse_args()
 
@@ -115,7 +110,7 @@ DATASET = args.dataset
 with_inference = args.inference
 
 model = utils.load_model(MODEL)
-utils.freeze_layers(model)
+model.freeze_layers()
 model = model.to(device)
 
 inference_dict = {}

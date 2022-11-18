@@ -112,7 +112,7 @@ class SketchyDatasetV1(RetrievalDataset):
     # no random transformation allowed because sketch/ image pairs
     # sketch/img format: png/svg/jpg, img type: photos or drawings?, mode: test or train, split_ratio: [0,1]
     def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), 
-                mode="train", split_ratio=0.2, size=1.0, seed=42) -> None:
+                mode="train", split_ratio=0.1, size=1.0, seed=42) -> None:
 
         super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
 
@@ -151,7 +151,7 @@ class SketchyDatasetV1(RetrievalDataset):
 
 
 # returns train and test dataset
-def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.2, seed:int=42):
+def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42):
     train_dataset = None
     test_dataset = None
     if dataset == "Sketchy":
