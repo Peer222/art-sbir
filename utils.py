@@ -8,7 +8,6 @@ import pandas as pd
 from typing import List, Tuple, Dict
 
 import torch
-from torchvision import transforms
 from torch import nn
 
 from torchinfo import summary
@@ -20,25 +19,6 @@ def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
     index, _ = next(((idx, path) for idx, path in enumerate(image_paths) if compare(path)), (-1,None))
     return index
-
-# transformations
-
-ResNet50m_img_transform = transforms.Compose([
-    transforms.Resize(size=224, interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
-    transforms.CenterCrop(size=(224, 224)),
-    transforms.Lambda(lambda img : img.convert('RGB')),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
-])
-
-def freeze_layers(model):
-    for param in model.parameters():
-        param.requires_grad = False
-
-    #for param in model.layer4.parameters():
-    #    param.requires_grad = True
-    for param in model.attnpool.parameters():
-        param.requires_grad = True
 
 
 # loss
@@ -70,8 +50,8 @@ def load_model(name:str) -> nn.Module:
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
-        #model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024, heads=8, input_resolution=224, width=64) # 2048 has to be divisible by heads - text encoder used 8
-        model = torch.load(Path("models/CLIP_ResNet-50.pt"))
+        model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024) # 2048 has to be divisible by heads - text encoder used 8
+        #model = torch.load(Path("models/CLIP_ResNet-50.pt"))
         model.load_state_dict(loaded)
     else:
         print("Model completely loaded from file")
@@ -118,7 +98,7 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
 
 
 
-def load_image_features(folder_name:str, transform=ResNet50m_img_transform) -> Tuple[any, torch.Tensor]:
+def load_image_features(folder_name:str) -> Tuple[any, torch.Tensor]:
     path = Path("data/image_features") / folder_name
     image_paths = list(pd.read_csv(path / "image_paths.csv", header=None).values)
     image_paths = [Path(img_path[0]) for img_path in image_paths]

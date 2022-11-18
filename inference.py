@@ -79,7 +79,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     inference_dataset, image_features = None, None
     if folder_name:
-        inference_dataset, image_features = utils.load_image_features(folder_name)
+        inference_dataset, image_features = utils.load_image_features(folder_name, model.transform)
         print("Image features loaded from file")
     else:
         inference_dataset, image_features = compute_image_features(model, dataset)

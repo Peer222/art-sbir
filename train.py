@@ -99,7 +99,8 @@ parser.add_argument("-e", "--epochs", type=int, default=1, help="Set number of e
 parser.add_argument("-b", "--batch_size", type=int, default=32, help="Set batch_size for training - default:32")
 parser.add_argument("-l", "--learning_rate", type=float, default=0.01, help="Set learning rate - default:0.01")
 parser.add_argument("-m", "--model", type=str, default='CLIP_ResNet-50.pt', choices=['CLIP_ResNet-50.pt, ResNet50m.pth'], help="Choose a model - default:ResNet50m WOP")
-parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy, SketchyS', 'SketchyL'], help="Choose a dataset - default:SketchyS WOP")
+parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy'], help="Choose a dataset - default:Sketchy WOP")
+parser.add_argument("-s", "-dsize", type=float, default=1.0, help="Fraction of dataset used during training/testing")
 parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training WOP")
 
 args = parser.parse_args()
@@ -124,7 +125,7 @@ data_dict= {}
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(size=0.005)
+train_dataset, test_dataset = data_preparation.get_datasets(size=args.dsize)
 
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()

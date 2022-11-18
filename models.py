@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torchvision import transforms
 
 
 class Bottleneck(nn.Module):
@@ -101,10 +102,19 @@ class ModifiedResNet(nn.Module):
     - The final pooling layer is a QKV attention instead of an average pool
     """
 
-    def __init__(self, layers, output_dim, heads, input_resolution=224, width=64):
+    # vision_heads = vision_cfg.width(64) * 32 // vision_cfg.head_width(64) from openclip model.py / RN50.config
+    def __init__(self, layers, output_dim, heads=32, input_resolution=224, width=64):
         super().__init__()
         self.output_dim = output_dim
         self.input_resolution = input_resolution
+
+        self.transform = transforms.Compose([
+            transforms.Resize(size=input_resolution, interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
+            transforms.CenterCrop(size=(input_resolution, input_resolution)),
+            transforms.Lambda(lambda img : img.convert('RGB')),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
+        ])
 
         # the 3-layer stem
         self.conv1 = nn.Conv2d(3, width // 2, kernel_size=3, stride=2, padding=1, bias=False)
@@ -136,6 +146,17 @@ class ModifiedResNet(nn.Module):
             layers.append(Bottleneck(self._inplanes, planes))
 
         return nn.Sequential(*layers)
+
+
+    def freeze_layers(self):
+        for param in self.parameters():
+            param.requires_grad = False
+
+        #for param in model.layer4.parameters():
+        #    param.requires_grad = True
+        for param in self.attnpool.parameters():
+            param.requires_grad = True
+
 
     def forward(self, x):
         def stem(x):
