@@ -129,11 +129,10 @@ optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam 
 
 loss_fn = utils.triplet_euclidean_loss
 
+param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE, "optimizer": type(optimizer).__name__, "loss_fn": type(loss_fn).__name__}
+data_dict = train_dataset.state_dict
 
 training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer)
-
-param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE}
-data_dict = train_dataset.state_dict
 
 if with_inference: inference_dict = inference.run_inference(model, test_dataset)
 
