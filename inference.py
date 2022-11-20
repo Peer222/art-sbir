@@ -93,6 +93,8 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     retrieval_samples = []
     random_indices = [random.randrange(0, len(dataset)) for _ in range(5)]
+
+    image_features = image_features.to(device)
     model.to(device)
     model.eval()
     with torch.inference_mode():

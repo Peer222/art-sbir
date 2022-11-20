@@ -151,11 +151,11 @@ class SketchyDatasetV1(RetrievalDataset):
 
 
 # returns train and test dataset
-def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42):
+def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
     train_dataset = None
     test_dataset = None
     if dataset == "Sketchy":
-        train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, utils.ResNet50m_img_transform, 'train', split_ratio, size, seed)
-        test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, utils.ResNet50m_img_transform, 'test', split_ratio, size, seed)
+        train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
+        test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
 
     return train_dataset, test_dataset
