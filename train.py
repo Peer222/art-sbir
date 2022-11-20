@@ -11,6 +11,7 @@ import utils
 import data_preparation
 import models
 import inference
+import visualization
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -125,7 +126,8 @@ train_dataset, test_dataset = data_preparation.get_datasets(size=args.dsize, tra
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
 
-optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)
+#optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE) # adam with lr 10^-5, betas default as in sketchy original paper
 
 loss_fn = utils.triplet_euclidean_loss
 
@@ -136,5 +138,8 @@ training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, 
 
 if with_inference: inference_dict = inference.run_inference(model, test_dataset)
 
-#save
-utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)
+# save
+folder = utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)
+
+# saves visualizations in result folder
+visualization.visualize(folder, training_dict, inference_dict)

@@ -59,8 +59,8 @@ def load_model(name:str) -> nn.Module:
     print(f"Model {name} loaded")
     return model
 
-# saves model and related parameters and results
-def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dict:Dict={}, inference_dict:Dict={}) -> None:
+# saves model and related parameters and results -> returns result folder path
+def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dict:Dict={}, inference_dict:Dict={}) -> Path:
     date_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     model_name = f"{model.__class__.__name__}_{data_dict['dataset']}_{date_time}"
@@ -94,6 +94,8 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
         json.dump(inference_dict, f, indent=4)
 
     print(f"Data saved in {str(result_path)}")
+
+    return result_path
 
 
 

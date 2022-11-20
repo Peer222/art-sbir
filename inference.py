@@ -15,8 +15,10 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import torch.nn as nn
 
+import visualization
 import data_preparation
 import utils
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -144,4 +146,4 @@ if __name__ == "__main__":
 
     inference_dict = run_inference(model, dataset, args.folder_name)
 
-    utils.save_model(model=model, data_dict=dataset.state_dict, inference_dict=inference_dict)
+    folder = utils.save_model(model=model, data_dict=dataset.state_dict, inference_dict=inference_dict)

@@ -161,8 +161,11 @@ def add_frame(plt, space=0, linewidth=0.4, color=Color.BLACK):
     rec = ax.add_patch(rec)
     rec.set_clip_on(False)
 
-json = load_file(Path("results/ModifiedResNet_SketchyDatasetV1_2022-11-20_13-31/inference.json"))
-show_retrieval_samples(json['retrieval_samples'], filename="visual/retrieval_samples_ModifiedResNet_SketchyDatasetV1_2022-11-20_13-31")
+
+def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=None):
+    show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
+    show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
+    show_retrieval_samples(inference_dict['retrieval_samples'], filename=folder_path / 'retrieval_samples')
 
 """
 def plot_transformed_images(image_paths, transform, n=3, seed=42):
