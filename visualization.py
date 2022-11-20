@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import seaborn
 import pandas as pd
 import numpy as np
 
@@ -8,6 +9,15 @@ from PIL import Image
 from pathlib import Path
 
 from typing import List, Tuple, Dict
+
+class Color:
+    BLACK = (0,0,0)
+    BLUE = (0, 88/256, 154/256)
+    RED = (161/256, 34/256, 0)
+    GREEN = (0, 124/256, 6/256)
+    YELLOW = (227/256, 193/256, 0)
+    LIGHT_GREY = (240/256, 240/256, 240/256)
+
 
 # creates a directory to store visualizations
 visual_path = Path("visual")
@@ -47,6 +57,26 @@ def show_triplets(triplets, filename:Path=None) -> None:
 
     plot(plt, filename)
 
+
+def plot_loss_curves(train_losses:List[float], test_losses:List[float], filename:Path=None, title="Loss curves") -> None:
+    epochs = np.arange(1, len(train_losses) + 1, 1)
+    plt.figure(figsize=(7,5))
+
+    plt.plot(epochs, train_losses, c=Color.BLUE, label="Train loss")
+    plt.plot(epochs, test_losses, c=Color.YELLOW, label="Test loss")
+
+    plt.title(title)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+
+    seaborn.despine(left=True, bottom=True, right=True, top=True)
+    plt.grid(visible=True, color=Color.LIGHT_GREY)
+
+    plot(plt, filename)
+
+
+plot_loss_curves([0.5, 0.31, 0.22, 0.17, 0.14, 0.12, 0.11, 0.09], [0.4, 0.3, 0.25, 0.2, 0.15, 0.18, 0.12, 0.16])
 
 """
 def plot_transformed_images(image_paths, transform, n=3, seed=42):
