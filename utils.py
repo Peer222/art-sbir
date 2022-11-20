@@ -13,7 +13,6 @@ from torch import nn
 from torchinfo import summary
 
 import models
-import data_preparation
 
 def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
@@ -103,7 +102,7 @@ def load_image_features(folder_name:str) -> Tuple[any, torch.Tensor]:
     image_paths = list(pd.read_csv(path / "image_paths.csv", header=None).values)
     image_paths = [Path(img_path[0]) for img_path in image_paths]
     image_features = pd.read_csv(path / "image_features.csv", header=None).values
-    return data_preparation.InferenceDataset(image_paths, transform), torch.from_numpy(image_features)
+    return image_paths, torch.from_numpy(image_features)
 
 def save_image_features(model_name:str, dataset_name:str, inference_dataset, image_features) -> None:
     feature_path = Path("data/image_features")

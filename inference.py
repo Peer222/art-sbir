@@ -79,7 +79,8 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     inference_dataset, image_features = None, None
     if folder_name:
-        inference_dataset, image_features = utils.load_image_features(folder_name, model.transform)
+        image_paths, image_features = utils.load_image_features(folder_name)
+        inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
         print("Image features loaded from file")
     else:
         inference_dataset, image_features = compute_image_features(model, dataset)
@@ -93,6 +94,8 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     retrieval_samples = []
     random_indices = [random.randrange(0, len(dataset)) for _ in range(5)]
+
+    image_features = image_features.to(device)
     model.to(device)
     model.eval()
     with torch.inference_mode():

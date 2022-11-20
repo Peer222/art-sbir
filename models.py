@@ -116,6 +116,8 @@ class ModifiedResNet(nn.Module):
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
 
+        self.trained_layers = []
+
         # the 3-layer stem
         self.conv1 = nn.Conv2d(3, width // 2, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(width // 2)
@@ -156,6 +158,8 @@ class ModifiedResNet(nn.Module):
         #    param.requires_grad = True
         for param in self.attnpool.parameters():
             param.requires_grad = True
+
+        self.trained_layers.append("attnpool")
 
 
     def forward(self, x):
