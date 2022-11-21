@@ -43,6 +43,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
             sketch, pos_img, neg_img = sketch.to(device), pos_img.to(device), neg_img.to(device)
 
             if with_classification:
+                labels = labels.to(device)
                 loss = get_classified_loss(loss_fn, model, sketch, pos_img, neg_img, labels)
             else: 
                 s_logits, p_logits, n_logits = model(sketch), model(pos_img), model(neg_img)
@@ -65,6 +66,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
                 sketch, pos_img, neg_img = sketch.to(device), pos_img.to(device), neg_img.to(device)
 
                 if with_classification:
+                    labels = labels.to(device)
                     loss = get_classified_loss(loss_fn, model, sketch, pos_img, neg_img, labels)
                 else: 
                     s_logits, p_logits, n_logits = model(sketch), model(pos_img), model(neg_img)
