@@ -39,8 +39,8 @@ class TripletMarginLoss_with_classification(nn.Module):
         self.triplet_loss = nn.TripletMarginLoss(margin=margin)
         self.classification_loss = nn.CrossEntropyLoss()
 
-    def forward(self, s_logits, p_logits, n_logits, c_logits, label):
-        return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_loss(c_logits, label)
+    def forward(self, s_logits, p_logits, n_logits, c_logits, labels):
+        return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_loss(c_logits, labels)
 
 
 MARGIN = 0.2 # Sketching without Worrying

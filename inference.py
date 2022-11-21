@@ -83,7 +83,6 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     with_classification = 'with_classification' in type(model).__name__
     print(with_classification)
 
-    inference_dataset, image_features = None, None
     if folder_name:
         image_paths, image_features = utils.load_image_features(folder_name)
         inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
@@ -144,7 +143,6 @@ if __name__ == "__main__":
 
     dataset_name = re.findall("\w+_(\w+)_\w+", args.folder_name)[0]
 
-    dataset = None
     if dataset_name == args.dataset: _, dataset = data_preparation.get_datasets(size=args.dsize) #test dataset currently only sketchyV1 supported !!!!
 
     if not dataset: raise ValueError("no dataset found")

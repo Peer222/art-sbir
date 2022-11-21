@@ -31,7 +31,7 @@ def plot(plt, file: Path=None) -> None:
     if not file:
         plt.show()
     else:
-        plt.savefig(fname=file, dpi=200)
+        plt.savefig(fname=file, dpi=300)
 
 
 # dataset.__getitem__() or dataset.load_image_sketch_tuple() -- expects torch.Tensor or PIL.Image
