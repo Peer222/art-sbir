@@ -151,16 +151,29 @@ class ModifiedResNet(nn.Module):
 
 
     def freeze_layers(self):
+        #self.trained_layers.append('all')
+        
         for param in self.parameters():
             param.requires_grad = False
-
-        #for param in model.layer4.parameters():
-        #    param.requires_grad = True
+        
+        
         for param in self.attnpool.parameters():
             param.requires_grad = True
-
+        """
         self.trained_layers.append("attnpool")
-
+        for param in self.layer4.parameters():
+            param.requires_grad = True
+        self.trained_layers.append('layer4')
+        for param in self.layer3.parameters():
+            param.requires_grad = True
+        self.trained_layers.append('layer3')
+        for param in self.layer2.parameters():
+            param.requires_grad = True
+        self.trained_layers.append('layer2')
+        for param in self.layer1.parameters():
+            param.requires_grad = True
+        self.trained_layers.append('layer1')
+        """
 
     def forward(self, x):
         def stem(x):
@@ -179,6 +192,18 @@ class ModifiedResNet(nn.Module):
         x = self.attnpool(x)
 
         return x
+
+
+class ModifiedResNet_with_classification(ModifiedResNet):
+    def __init__(self, layers, output_dim, heads=32, input_resolution=224, width=64, num_classes=125):
+        super().__init__(layers, output_dim, heads, input_resolution, width)
+
+        self.classifier = nn.Linear(output_dim, num_classes)
+
+    def forward(self, x):
+        feature = super().forward(x)
+        classes = self.classifier(feature)
+        return feature, classes
 
 
 class LayerNorm(nn.LayerNorm):

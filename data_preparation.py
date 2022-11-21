@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from PIL import Image
 from typing import Dict, Tuple, List
+from collections import defaultdict
 
 import random
 import re
@@ -118,13 +119,13 @@ class SketchyDatasetV1(RetrievalDataset):
 
         self.path = Path("data/sketchy")
 
-        self.classes, self.classes_to_idx = self.__sketchy_classes()
+        self.classes, self.classes_to_idx = self._sketchy_classes()
 
         self._load_paths()
         self._sample()
 
     # retrieves classes and selects first n classes depending on size parameter
-    def __sketchy_classes(self) -> Tuple[List[str], Dict[str, int], int]:
+    def _sketchy_classes(self) -> Tuple[List[str], Dict[str, int], int]:
         
         classes = sorted(entry.name for entry in os.scandir(self.path / self.img_type) if entry.is_dir() )
         if not classes:
@@ -150,12 +151,43 @@ class SketchyDatasetV1(RetrievalDataset):
             self.photo_paths.append(Path(photo_path))
 
 
+class SketchyDatasetV2(SketchyDatasetV1):
+    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), mode="train", split_ratio=0.1, size=0.1, seed=42) -> None:
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+
+        self.categorized_images = self._provide_categorized_images()
+
+    def _provide_categorized_images(self) -> None:
+        self.categorized_images = defaultdict(list)
+
+        for image_path in self.photo_paths:
+            img_class = image_path.parent.stem
+            self.categorized_images[img_class].append(image_path)
+        return self.categorized_images
+
+    def load_image_sketch_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int]:
+        img_class = self.photo_paths[idx].parent.stem
+        label = self.classes_to_idx[img_class]
+        neg_img_path = self.photo_paths[idx]
+        n = 0 # in case a category has only 1 picture
+        while neg_img_path == self.photo_paths[idx] or n < 10:
+            neg_img_path = random.choice(self.categorized_images[img_class])
+            n += 1
+        return Image.open(self.sketch_paths[idx]), Image.open(self.photo_paths[idx]), Image.open(neg_img_path), label
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]:
+        sketch, pos_img, neg_img, label = self.load_image_sketch_tuple(idx)
+        return self.transform(sketch), self.transform(pos_img), self.transform(neg_img), label
+
+
 # returns train and test dataset
-def get_datasets(dataset:str="Sketchy", size:float=1.0, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
-    train_dataset = None
-    test_dataset = None
+def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
+
     if dataset == "Sketchy":
         train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
         test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
+    elif dataset == 'SketchyV2':
+        train_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
+        test_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
 
     return train_dataset, test_dataset

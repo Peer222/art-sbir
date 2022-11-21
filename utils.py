@@ -32,26 +32,42 @@ def euclidean_distance(t1:torch.Tensor, t2:torch.Tensor) -> float:
     print(torch.sum( torch.pow(t2 - t1, 2), dim=1))
     return torch.sqrt(torch.sum( torch.pow(t2 - t1, 2), dim=2))
 """
+class TripletMarginLoss_with_classification(nn.Module):
+    def __init__(self, margin, classification_weight=1):
+        super().__init__()
+
+        self.triplet_loss = nn.TripletMarginLoss(margin=margin)
+        self.classification_loss = nn.CrossEntropyLoss()
+
+    def forward(self, s_logits, p_logits, n_logits, c_logits, label):
+        return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_loss(c_logits, label)
+
 
 MARGIN = 0.2 # Sketching without Worrying
 
 #triplet_euclidean_loss = nn.TripletMarginWithDistanceLoss(margin=MARGIN, distance_function=euclidean_distance)
 triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 
+triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
+
 
 # model saver and loader
 
 # loads resnet50m state dicts or arbitrary models
-def load_model(name:str) -> nn.Module:
+def load_model(name:str, dataset:str='Sketchy') -> nn.Module:
     path = Path("models/") / name
     loaded = torch.load(path)
     model = None
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
-        model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024) # 2048 has to be divisible by heads - text encoder used 8
-        #model = torch.load(Path("models/CLIP_ResNet-50.pt"))
-        model.load_state_dict(loaded)
+        if dataset == 'Sketchy':
+            model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
+            model.load_state_dict(loaded)
+        elif dataset == 'SketchyV2':
+            print("Model with classification layer loaded")
+            model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024)
+            model.load_state_dict(loaded, strict=False)
     else:
         print("Model completely loaded from file")
         model = loaded
