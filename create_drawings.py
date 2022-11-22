@@ -28,9 +28,9 @@ def get_sketchy_classes(data_root, size:float=1):
     return classes[:num]
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--name', required=True, type=str, help='Model name without suffix') # contour_style
+parser.add_argument('--name', required=True, type=str, choices=['contour', 'anime', 'opensketch'], help='Model name without suffix') # contour_style
 parser.add_argument('--model_dir', type=str, default='models/drawing_models', help='Where the model checkpoints are saved') # changed
-parser.add_argument('--results_dir', type=str, default='data/sketchy/contour_drawings', choices=['data/sketchy/drawings', 'data/kaggle/drawings'], help='where to save result images') # changed
+parser.add_argument('--results_dir', type=str, default='data/sketchy/', choices=['data/sketchy/', 'data/kaggle/'], help='where to save result images') # changed
 parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
 parser.add_argument('--dataroot', type=str, default='data/sketchy/photos', choices=['data/sketchy/photos', 'TODO kaggle'], help='root directory of the dataset')
 
@@ -51,7 +51,7 @@ opt = parser.parse_args()
 print(opt)
 
 data_dir = Path(opt.dataroot)
-result_dir = Path(opt.results_dir)
+result_dir = Path(opt.results_dir) / f"{opt.name}_drawings"
 
 if not result_dir.is_dir():
     result_dir.mkdir(exist_ok=True, parents=True)
@@ -71,7 +71,7 @@ with torch.no_grad():
     transforms_r = [transforms.Resize(int(opt.size), Image.BICUBIC), transforms.ToTensor()]
 
     if is_sketchy:
-        classes = get_sketchy_classes(data_root=data_dir, size=0.01)
+        classes = get_sketchy_classes(data_root=data_dir, size=1)
 
         for img_cls in classes:
             data = UnpairedDepthDataset(data_dir / img_cls, '', opt, transforms_r=transforms_r, mode='test')
