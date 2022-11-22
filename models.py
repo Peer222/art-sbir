@@ -151,15 +151,15 @@ class ModifiedResNet(nn.Module):
 
 
     def freeze_layers(self):
-        #self.trained_layers.append('all')
-        
+        self.trained_layers.append('all')
+        """
         for param in self.parameters():
             param.requires_grad = False
         
         
         for param in self.attnpool.parameters():
             param.requires_grad = True
-        """
+        
         self.trained_layers.append("attnpool")
         for param in self.layer4.parameters():
             param.requires_grad = True
