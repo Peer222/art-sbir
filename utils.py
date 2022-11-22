@@ -33,14 +33,15 @@ def euclidean_distance(t1:torch.Tensor, t2:torch.Tensor) -> float:
     return torch.sqrt(torch.sum( torch.pow(t2 - t1, 2), dim=2))
 """
 class TripletMarginLoss_with_classification(nn.Module):
-    def __init__(self, margin, classification_weight=1):
+    def __init__(self, margin, classification_weight=0.5):
         super().__init__()
+        self.classification_weight = classification_weight
 
         self.triplet_loss = nn.TripletMarginLoss(margin=margin)
         self.classification_loss = nn.CrossEntropyLoss()
 
-    def forward(self, s_logits, p_logits, n_logits, c_logits, labels):
-        return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_loss(c_logits, labels)
+    def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, labels):
+        return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_weight * (self.classification_loss(cs_logits, labels) + self.classification_loss(cp_logits, labels))
 
 
 MARGIN = 0.2 # Sketching without Worrying

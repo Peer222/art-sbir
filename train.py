@@ -18,10 +18,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 
 def get_classified_loss(loss_fn, model, sketch, pos_img, neg_img, labels):
-    s_logits, _ = model(sketch)
-    p_logits, c_logits = model(pos_img)
+    s_logits, cs_logits = model(sketch)
+    p_logits, cp_logits = model(pos_img)
     n_logits, _ = model(neg_img)
-    return loss_fn(s_logits, p_logits, n_logits, c_logits, labels)
+    return loss_fn(s_logits, p_logits, n_logits, cs_logits, cp_logits, labels)
 
 def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test_dataloader:DataLoader, loss_fn, optimizer, with_classification):
     start_time = timer()
