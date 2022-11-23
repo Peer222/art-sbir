@@ -123,7 +123,7 @@ data_dict= {}
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, img_type=, transform=model.transform)
+train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, img_type=args.img_type, transform=model.transform)
 
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
