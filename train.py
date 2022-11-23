@@ -96,6 +96,7 @@ parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sk
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
 parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
+parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings'], help="Image type")
 
 args = parser.parse_args()
 
@@ -122,7 +123,7 @@ data_dict= {}
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, transform=model.transform)
+train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, img_type=, transform=model.transform)
 
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 # modified test.py from informative-drawings
+# https://github.com/carolineec/informative-drawings
 
 import argparse
 import os

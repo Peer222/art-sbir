@@ -123,6 +123,11 @@ def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:
             plt.title('Query', fontsize=8, y=1.1)
 
         for j in range(len(image_paths)):
+
+            if show_original:
+                if 'photos' in image_paths[j][0]: return
+                image_paths[j][0] = image_paths[j][0].replace('anime_drawings', 'photos')
+
             image_path = Path(image_paths[j][0])
             image = Image.open(image_path)
 
@@ -165,7 +170,8 @@ def add_frame(plt, space=0, linewidth=0.4, color=Color.BLACK):
 def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=None):
     show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
     show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
-    show_retrieval_samples(inference_dict['retrieval_samples'], filename=folder_path / 'retrieval_samples')
+    show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')
+    show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
 
 """
 def plot_transformed_images(image_paths, transform, n=3, seed=42):
