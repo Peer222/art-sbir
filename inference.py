@@ -53,7 +53,7 @@ def get_topk_images(k:int, image_paths:List[Path], sketch_feature:torch.Tensor, 
     return list(zip(image_paths, values))
 
 
-def compute_image_features(model, dataset) -> Tuple[Dataset, torch.Tensor]:
+def compute_image_features(model, dataset, with_classification:bool) -> Tuple[Dataset, torch.Tensor]:
 
     inference_dataset = data_preparation.InferenceDataset(dataset.photo_paths, dataset.transform)
 
@@ -66,7 +66,8 @@ def compute_image_features(model, dataset) -> Tuple[Dataset, torch.Tensor]:
     with torch.inference_mode():
         for images in tqdm(dataloader):
             images = images.to(device)
-            image_features = torch.cat(( image_features, model(images).squeeze() ))
+            if with_classification: image_features = torch.cat(( image_features, model(images)[0].squeeze() ))
+            else: image_features = torch.cat(( image_features, model(images).squeeze() ))
 
     image_features = image_features.cpu()
 
@@ -79,13 +80,15 @@ def compute_image_features(model, dataset) -> Tuple[Dataset, torch.Tensor]:
 def run_inference(model, dataset, folder_name:str=None) -> Dict:
     start_time = timer()
 
-    inference_dataset, image_features = None, None
+    with_classification = 'with_classification' in type(model).__name__
+    print(with_classification)
+
     if folder_name:
         image_paths, image_features = utils.load_image_features(folder_name)
         inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
         print("Image features loaded from file")
     else:
-        inference_dataset, image_features = compute_image_features(model, dataset)
+        inference_dataset, image_features = compute_image_features(model, dataset, with_classification)
 
     dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=0, shuffle=False)
 
@@ -102,8 +105,9 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     model.eval()
     with torch.inference_mode():
         # because shuffle=False and batch_size = 1 i is the index of the sketch path in dataset
-        for i, (sketch, _, _) in enumerate(tqdm(dataloader, desc="Inference")):
-            sketch_feature = model(sketch.to(device))
+        for i, tuple in enumerate(tqdm(dataloader, desc="Inference")):
+            if with_classification: sketch_feature, _ = model(tuple[0].to(device)) # tuple[0] = sketch
+            else: sketch_feature = model(tuple[0].to(device)) # tuple[0] = sketch
 
             rank = get_ranking_position(dataset.sketch_paths[i], inference_dataset.image_paths, sketch_feature, image_features)
 
@@ -139,8 +143,7 @@ if __name__ == "__main__":
 
     dataset_name = re.findall("\w+_(\w+)_\w+", args.folder_name)[0]
 
-    dataset = None
-    if dataset_name == args.dataset: _, dataset = data_preparation.get_datasets(size=args.dsize) #test dataset
+    if dataset_name == args.dataset: _, dataset = data_preparation.get_datasets(size=args.dsize) #test dataset currently only sketchyV1 supported !!!!
 
     if not dataset: raise ValueError("no dataset found")
 
