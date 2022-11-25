@@ -96,7 +96,7 @@ parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sk
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
 parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
-parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings'], help="Image type")
+parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings'], help="Image type")
 
 args = parser.parse_args()
 

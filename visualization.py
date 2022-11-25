@@ -128,6 +128,7 @@ def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:
             if show_original:
                 if 'photos' in image_path: return
                 image_path = image_path.replace('anime_drawings', 'photos') # works only for sketchy !!!
+                image_path = image_path.replace('contour_drawings', 'photos')
                 image_path = image_path.replace('png', 'jpg') # original photos must have jpg format eventually incompatible with other datasets !!!
 
             image_path = Path(image_path)
