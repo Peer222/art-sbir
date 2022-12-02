@@ -1,5 +1,3 @@
-# https://github.com/openai/CLIP/blob/main/clip/model.py
-
 from collections import OrderedDict
 from typing import Tuple, Union
 
@@ -14,10 +12,10 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 
-class Photo2Sketch_Base(nn.Module):
+class Photo2Sketch(nn.Module):
 
     def __init__(self, hp):
-        super(Photo2Sketch_Base, self).__init__()
+        super(Photo2Sketch, self).__init__()
         self.Image_Encoder = EncoderCNN()
         # self.Image_Decoder = DecoderCNN()
         # self.Sketch_Encoder = EncoderRNN(hp)
@@ -181,7 +179,12 @@ class AttentionCell2D(nn.Module):
         return att_out, alpha
 
 
+
+##############################################################################
 ### CLIP models ###
+
+# https://github.com/openai/CLIP/blob/main/clip/model.py
+
 
 class Bottleneck(nn.Module):
     expansion = 4

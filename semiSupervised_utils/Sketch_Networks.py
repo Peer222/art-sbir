@@ -254,6 +254,6 @@ def sketch_reconstruction_loss(output, x_input):
 
     return result.mean()
 
-def set_learninRate(optimizer, curr_learning_rate):
+def set_learningRate(optimizer, curr_learning_rate):
     for g in optimizer.param_groups:
         g['lr'] = curr_learning_rate

@@ -10,6 +10,7 @@ import semiSupervised_utils
 
 import utils
 import models
+import data_preparation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -27,44 +28,143 @@ def train_sketch_gen(hp):
 
     dataloader_Train, dataloader_Test = semiSupervised_utils.get_dataloader(hp)
 
-    train_losses = []
-    test_losses = []
+    train_losses = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
+    test_losses = {}
 
     start_time = timer()
 
     for i_epoch in tqdm(range(hp.max_epoch)):
 
-        train_loss = 0
-        test_loss = 0
+        train_loss = []
 
         model.train()
-        for i_batch, batch_data in enumerate(dataloader_Train):
+        for i_batch, batch_data in tqdm(enumerate(dataloader_Train)):
+
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
             length_sketch = batch_data['length'].to(device) - 1
             sketch_name = batch_data['sketch_path'][0]
 
-            sup_p2s_loss, kl_cost_rgb, total_loss = model.Image2Sketch_Train(rgb_image, sketch_vector, length_sketch, step, sketch_name)
+            # Encoder
+            backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
+            rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
+
+            prior_distribution = torch.distributions.Normal(torch.zeros_like(rgb_encoded_dist.mean), torch.ones_like(rgb_encoded_dist.stddev))
+            kl_cost_rgb = torch.max(torch.distributions.kl_divergence(rgb_encoded_dist, prior_distribution).mean(), torch.tensor(hp.kl_tolerance).to(device))
+
+
+            # decoder
+            photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
+
+            end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * rgb_image.shape[0]).unsqueeze(0).to(device).float()
+            batch = torch.cat([sketch_vector, end_token], 0)
+            x_target = batch.permute(1, 0, 2)  # batch-> Seq_Len, Batch, Feature_dim
+
+            curr_learning_rate = ((hp.learning_rate - hp.min_learning_rate) * (hp.decay_rate) ** step + hp.min_learning_rate)
+            curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
+
+            sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+            loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
+
+            semiSupervised_utils.set_learningRate(optimizer, curr_learning_rate)
+
+            optimizer.zero_grad()
+
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), hp.grad_clip)
+            optimizer.step()
+
+
+            print(f'Step:{step} ** sup_p2s_loss:{sup_p2s_loss} ** kl_cost_rgb:{kl_cost_rgb} ** Total_loss:{loss}', flush=True)
 
             step += 1
 
-            if total_loss.item() < current_loss:
+            if loss.item() < current_loss:
                 #save model
                 pass
 
-            current_loss = total_loss.item()
+            current_loss = loss.item()
 
-            train_loss += total_loss / hp.batchsize
+            if step % 5 == 0:
+                train_losses['reconstruction_loss'].append(sup_p2s_loss.item())
+                train_losses['kl_loss'].append(kl_cost_rgb.item())
+                train_losses['total_loss'].append(loss.item())
 
-        for i_batch, batch_data in tqdm(enumerate(dataloader_Test)):
+    return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
-            test_loss += total_loss / hp.batchsize
+"""
+def Image2Sketch_Train(self, rgb_image, sketch_vector, length_sketch, step, sketch_name):
+                
+        ##############################################################
+        ##############################################################
+        # Cross Modal the Decoding 
+        ##############################################################
+        ##############################################################
 
-        train_losses.append(train_loss)
-        test_losses.append(test_loss)
+        if step%5 == 0:
+        
+            data = {}
+            data['Reconstrcution_Loss'] = sup_p2s_loss
+            data['kl_'] = kl_cost_rgb
+            data['Total Loss'] = loss
+        
+            self.visualizer.plot_scalars(data, step)
 
-    training_time = timer() - start_time
 
+        if step%1 == 0:
+
+            folder_name = os.path.join('./CVPR_SSL/' + '_'.join(sketch_name.split('/')[-1].split('_')[:-1]))
+            if not os.path.exists(folder_name):
+                os.makedirs(folder_name)
+
+            sketch_vector_gt = sketch_vector.permute(1, 0, 2)
+
+            save_sketch(sketch_vector_gt[0], sketch_name)
+
+
+            with torch.no_grad():
+                photo2sketch_gen, attention_plot  = \
+                    self.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch+1, isTrain=False)
+
+            sketch_vector_gt = sketch_vector.permute(1, 0, 2)
+
+
+            for num, len in enumerate(length_sketch):
+                photo2sketch_gen[num, len:, 4 ] = 1.0
+                photo2sketch_gen[num, len:, 2:4] = 0.0
+
+            save_sketch_gen(photo2sketch_gen[0], sketch_name)
+
+            sketch_vector_gt_draw = semiSupervised_utils.batch_rasterize_relative(sketch_vector_gt)
+            photo2sketch_gen_draw = semiSupervised_utils.batch_rasterize_relative(photo2sketch_gen)
+
+            batch_redraw = []
+            plot_attention = showAttention(attention_plot, rgb_image, sketch_vector_gt_draw, photo2sketch_gen_draw, sketch_name)
+            # max_image = 5
+            # for a, b, c, d in zip(sketch_vector_gt_draw[:max_image], rgb_image.cpu()[:max_image],
+            #                       photo2sketch_gen_draw[:max_image], plot_attention[:max_image]):
+            #     batch_redraw.append(torch.cat((1. - a, b, 1. - c,  d), dim=-1))
+            #
+            # torchvision.utils.save_image(torch.stack(batch_redraw), './Redraw_Photo2Sketch_'
+            #                              + self.hp.setup + '/redraw_{}.jpg'.format(step),
+            #                              nrow=1, normalize=False)
+
+            # data = {'attention_1': [], 'attention_2':[]}
+            # for x in attention_plot:
+            #     data['attention_1'].append(x[0])
+            #     data['attention_2'].append(x[2])
+            #
+            # data['attention_1'] = torch.stack(data['attention_1'])
+            # data['attention_2'] = torch.stack(data['attention_2'])
+            #
+            # self.visualizer.vis_image(data, step)
+
+
+
+        # return sup_p2s_loss, kl_cost_rgb, loss
+
+        return 0, 0, 0
+"""
 
 if __name__ == "__main__":
 
@@ -101,4 +201,4 @@ if __name__ == "__main__":
 
     print(hp)
 
-    train_sketch_gen(hp)
+    training_dict = train_sketch_gen(hp)
