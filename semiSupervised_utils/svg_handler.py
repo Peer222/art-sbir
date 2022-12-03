@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from typing import List, Tuple, Dict
 
+import torch
+import numpy as np
+
 
 def build_svg(tuple_representation, result_path:str or Path=None) -> str: # returns svg string
     if result_path and type(result_path) == str: result_path = Path(result_path)
@@ -50,7 +53,7 @@ def parse_svg(filename:str or Path='test-bezier.svg', result_path:str or Path=No
 
             x, y = x + dx, y + dy
 
-            result['image'].append((dx, dy, pen_touched, pen_lifted, is_end))
+            result['image'].append([dx, dy, pen_touched, pen_lifted, is_end])
 
 
     if result_path:    
@@ -107,9 +110,7 @@ def get_paths_from_svg(filename:str or Path='test-bezier.svg') -> List[str]:
 
 def get_shape(svg):
     width, height = re.findall('<svg\swidth="(\d+)"\sheight="(\d+)"', svg)[0]
-    #height = float(re.findall('<svg\s.+?\sheight="(\d+)"', svg)[0])
-    print(width, height)
-    return float(width), float(height)
+    return int(width), int(height)
 
 def tokenize_path(path:str) -> List[str]:
     splitted_path = path.split('c')
@@ -128,6 +129,16 @@ def convert_token_to_line(token:str) -> str:
 def convert_bezier_to_line(substroke:str) -> str:
     return substroke.split(' ')[-1]
 
+# vectors are converted from nested list to torch.Tensor
+def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
+    vector_sketch = torch.Tensor(vectorized_sketch['image'])
+    vector_sketch[:, 0] = vector_sketch[:, 0] / vectorized_sketch['shape'][0] * img_width
+    vector_sketch[:, 1] = vector_sketch[:, 1] / vectorized_sketch['shape'][1] * img_height
+    vectorized_sketch['original_shape'] = vectorized_sketch['shape']
+    vectorized_sketch['shape'] = (img_width, img_height)
+    vectorized_sketch['image'] = vector_sketch
+    return vectorized_sketch
+
 # unused
 def show_parsed_svg(line_representation:List[List[str]], new_filename:str or Path='test-parsed.svg') -> None:
     svg_content = """<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">\n <g display="inline">\n <title>Layer 1</title>\n """
@@ -143,8 +154,10 @@ def show_parsed_svg(line_representation:List[List[str]], new_filename:str or Pat
         svg.write(svg_content)
 
 if __name__ == '__main__':
-    tuple_rep = parse_svg()
-    build_svg(tuple_rep, 'test2.svg')
+    tuple_rep = parse_svg('../data/sketchy/sketches_svg/zebra/n02391049_9960-5.svg')
+    tuple_rep = reshape_vectorSketch(tuple_rep)
+    print(tuple_rep)
+    build_svg(tuple_rep, 'test-zebra_reshaped.svg')
     #line_representation, erased = create_line_representation()
 
     #show_parsed_svg(line_representation)
