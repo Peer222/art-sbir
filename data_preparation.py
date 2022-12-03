@@ -195,6 +195,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
         self.vectorized_sketches = [semiSupervised_utils.parse_svg(path) for path in self.sketch_paths]       
         # scales coordinates by standard deviation
+        """
         data = []
         for vec_sketch in self.vectorized_sketches:
             data.extend(vec_sketch['image'][:, 0])
@@ -204,6 +205,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
         for vec_sketch in self.vectorized_sketches:
             vec_sketch['image'][:, :2] /= scale_factor
+        """
 
 
     def __getitem__(self, idx: int):
@@ -227,3 +229,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, include_erased=True)
 
     return train_dataset, test_dataset
+
+
+if __name__ == '__main__':
+    dataset = VectorizedSketchyDatasetV1(transform=utils.get_sketch_gen_transform())
+
+    print(dataset.__getitem__(0))

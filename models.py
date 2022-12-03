@@ -14,13 +14,12 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class Photo2Sketch(nn.Module):
 
-    def __init__(self, hp):
+    def __init__(self, z_size, dec_rnn_size:int, num_mixture, max_seq_len:int):
         super(Photo2Sketch, self).__init__()
         self.Image_Encoder = EncoderCNN()
         # self.Image_Decoder = DecoderCNN()
         # self.Sketch_Encoder = EncoderRNN(hp)
-        self.Sketch_Decoder = DecoderRNN2D(hp)
-        self.hp = hp
+        self.Sketch_Decoder = DecoderRNN2D(z_size, dec_rnn_size, num_mixture, max_seq_len)
         # self.apply(weights_init_normal)
 
     def freeze_weights(self):
@@ -33,7 +32,7 @@ class Photo2Sketch(nn.Module):
 
 
 class EncoderCNN(nn.Module):
-    def __init__(self, hp=None):
+    def __init__(self):
         super(EncoderCNN, self).__init__()
         self.feature = backbone_.vgg16(pretrained=True).features
         self.pool_method = nn.AdaptiveMaxPool2d(1)
@@ -50,13 +49,14 @@ class EncoderCNN(nn.Module):
 
 
 class DecoderRNN2D(nn.Module):
-    def __init__(self, hp):
+    def __init__(self, z_size, dec_rnn_size:int, num_mixture, max_seq_len:int):
         super(DecoderRNN2D, self).__init__()
-        self.fc_hc = nn.Linear(hp.z_size, 2 * hp.dec_rnn_size)
-        self.lstm = nn.LSTM(hp.dec_rnn_size + 5, hp.dec_rnn_size)
-        self.fc_params = nn.Linear(hp.dec_rnn_size, 6 * hp.num_mixture + 3)
-        self.hp = hp
-        self.attention_cell = AttentionCell2D(hp.dec_rnn_size)
+        self.fc_hc = nn.Linear(z_size, 2 * dec_rnn_size)
+        self.lstm = nn.LSTM(dec_rnn_size + 5, dec_rnn_size)
+        self.fc_params = nn.Linear(dec_rnn_size, 6 * num_mixture + 3)
+        self.attention_cell = AttentionCell2D(dec_rnn_size)
+
+        self.z_size, self.dec_rnn_size, self.num_mixture, self.max_seq_len = z_size, dec_rnn_size, num_mixture, max_seq_len
 
 
     def forward(self, backbone_feature, z_vector, sketch_vector=None, seq_len=None, isTrain=True):
@@ -66,10 +66,10 @@ class DecoderRNN2D(nn.Module):
 
 
         self.training = isTrain
-        output_hiddens =  torch.FloatTensor(batch_size, self.hp.max_seq_len + 1, self.hp.dec_rnn_size).fill_(0).to(device)
+        output_hiddens =  torch.FloatTensor(batch_size, self.max_seq_len + 1, self.dec_rnn_size).fill_(0).to(device)
 
 
-        hidden, cell = torch.split(F.tanh(self.fc_hc(z_vector)), self.hp.dec_rnn_size, 1)
+        hidden, cell = torch.split(F.tanh(self.fc_hc(z_vector)), self.dec_rnn_size, 1)
         hidden_cell = (hidden.unsqueeze(0).contiguous(), cell.unsqueeze(0).contiguous())
 
 

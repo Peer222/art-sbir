@@ -90,6 +90,7 @@ def create_line_representation(filename:str or Path='test-bezier.svg') -> List[L
     return parsed_paths, erase
 
 def get_paths_from_svg(filename:str or Path='test-bezier.svg') -> List[str]:
+    print(filename)
     with open(filename, 'r') as f:
         lines = [str(line) for line in f.readlines()]
         svg = ""
@@ -97,8 +98,9 @@ def get_paths_from_svg(filename:str or Path='test-bezier.svg') -> List[str]:
             svg += line
 
         # gets all paths except for paths with color white (erase): downside erased strokes are included
-        paths = re.findall('<path[^d]*d="([^"]+)"[^#]*#000[^/]*/>', svg, re.DOTALL)
-        erase_paths = re.findall('<path[^d]*d="([^"]+)"[^#]*#fff[^/]*/>', svg, re.DOTALL)
+        paths = re.findall('<path.*?\sd="([^"]+)"[^#]*#000[^/]*/>', svg, re.DOTALL)
+
+        erase_paths = re.findall('<path.*?\sd="([^"]+)"[^#]*#fff[^/]*/>', svg, re.DOTALL)
 
         return paths, len(erase_paths)
 

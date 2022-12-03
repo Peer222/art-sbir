@@ -1,10 +1,11 @@
 import argparse
 from tqdm.auto import tqdm
 from timeit import default_timer as timer
-
+import os
 
 import torch
 from torch import nn
+from torch.utils.data import DataLoader
 
 import semiSupervised_utils
 
@@ -26,7 +27,10 @@ def train_sketch_gen(hp):
     step = 0
     current_loss = 1e+10
 
-    dataloader_Train, dataloader_Test = semiSupervised_utils.get_dataloader(hp)
+    dataset_train, dataset_test = data_preparation.get_datasets(transform=utils.get_sketch_gen_transform())
+
+    dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
+    dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
 
     train_losses = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
     test_losses = {}
@@ -38,7 +42,7 @@ def train_sketch_gen(hp):
         train_loss = []
 
         model.train()
-        for i_batch, batch_data in tqdm(enumerate(dataloader_Train)):
+        for i_batch, batch_data in tqdm(enumerate(dataloader_train)):
 
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()

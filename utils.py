@@ -56,9 +56,9 @@ triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classificati
 
 def get_sketch_gen_transform(type:str='train'):
     transform_list = []
-    if type is 'train':
+    if type == 'train':
         transform_list.extend([transforms.Resize(256)])
-    elif type is 'test':
+    elif type == 'test':
         transform_list.extend([transforms.Resize(256)])
     # transform_list.extend(
     #     [transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
