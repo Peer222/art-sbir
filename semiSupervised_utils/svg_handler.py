@@ -79,6 +79,17 @@ def load_tuple_representation(filename:str or Path): #
             return pickle.load(f)
 
 
+# vectors are converted from nested list to torch.Tensor
+def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
+    vector_sketch = torch.Tensor(vectorized_sketch['image'])
+    vector_sketch[:, 0] = vector_sketch[:, 0] / vectorized_sketch['shape'][0] * img_width
+    vector_sketch[:, 1] = vector_sketch[:, 1] / vectorized_sketch['shape'][1] * img_height
+    vectorized_sketch['original_shape'] = vectorized_sketch['shape']
+    vectorized_sketch['shape'] = (img_width, img_height)
+    vectorized_sketch['image'] = vector_sketch
+    return vectorized_sketch
+    
+
 
 # ------ helper functions --------
 
@@ -128,16 +139,6 @@ def convert_token_to_line(token:str) -> str:
 
 def convert_bezier_to_line(substroke:str) -> str:
     return substroke.split(' ')[-1]
-
-# vectors are converted from nested list to torch.Tensor
-def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
-    vector_sketch = torch.Tensor(vectorized_sketch['image'])
-    vector_sketch[:, 0] = vector_sketch[:, 0] / vectorized_sketch['shape'][0] * img_width
-    vector_sketch[:, 1] = vector_sketch[:, 1] / vectorized_sketch['shape'][1] * img_height
-    vectorized_sketch['original_shape'] = vectorized_sketch['shape']
-    vectorized_sketch['shape'] = (img_width, img_height)
-    vectorized_sketch['image'] = vector_sketch
-    return vectorized_sketch
 
 # unused
 def show_parsed_svg(line_representation:List[List[str]], new_filename:str or Path='test-parsed.svg') -> None:

@@ -223,7 +223,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
     def __getitem__(self, idx: int):
         return { 'sketch_path': self.sketch_paths[idx], 'length': len(self.vectorized_sketches[idx]['image']),
-                'sketch_vector': torch.Tensor(self.vectorized_sketches[idx]['image']),
+                'sketch_vector': semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx]['image']),
                 'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB'))}
 
 
