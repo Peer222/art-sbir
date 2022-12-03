@@ -15,23 +15,8 @@ import data_preparation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def train_sketch_gen(hp):
-    model = models.Photo2Sketch(hp)
-    model.to(device)
-    #model.load_state_dict(torch.load('./modelCVPR21/QMUL/model_photo2Sketch_QMUL_2Dattention_8000_.pth'))
-
-
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
-
-
-    step = 0
-    current_loss = 1e+10
-
-    dataset_train, dataset_test = data_preparation.get_datasets(transform=utils.get_sketch_gen_transform())
-
-    dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
-    dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
-
+def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
+    
     train_losses = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
     test_losses = {}
 
@@ -203,6 +188,21 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
-    print(hp)
+    model = models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, hp.max_seq_len)
+    model.to(device)
+    #model.load_state_dict(torch.load('./modelCVPR21/QMUL/model_photo2Sketch_QMUL_2Dattention_8000_.pth'))
 
-    training_dict = train_sketch_gen(hp)
+
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
+
+
+    step = 0
+    current_loss = 1e+10
+
+    dataset_train, dataset_test = data_preparation.get_datasets(transform=utils.get_sketch_gen_transform())
+
+    dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
+    dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
+
+
+    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)

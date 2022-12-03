@@ -206,6 +206,9 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
                 vector_path = self.vector_path / path.parent.name / (path.stem + '.json')
                 self.vectorized_sketches.append(semiSupervised_utils.load_tuple_representation(vector_path))
 
+        # calculate stats:
+        self.max_seq_len = 0
+
         # scales coordinates by standard deviation
         """
         data = []
@@ -218,8 +221,6 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         for vec_sketch in self.vectorized_sketches:
             vec_sketch['image'][:, :2] /= scale_factor
         """
-
-        # scale vectors such that width and height matches with width and height of images ?
 
     def __getitem__(self, idx: int):
         return { 'sketch_path': self.sketch_paths[idx], 'length': len(self.vectorized_sketches[idx]['image']),
