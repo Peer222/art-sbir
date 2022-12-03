@@ -54,8 +54,8 @@ def parse_svg(filename:str or Path='test-bezier.svg', result_path:str or Path=No
 
 
     if result_path:    
-        # pickle.dump(result, open(result_path / filename.stem, 'wb'))
-        with open('5tuple_test.json', 'w') as f:
+        #pickle.dump(result, open(result_path / filename.stem, 'wb'))
+        with open(result_path / (filename.stem + '.json'), 'w') as f:
             json.dump(result, f)
     
     return result
@@ -65,7 +65,7 @@ def rasterize(tuple_representation, filename) -> None:
     svg = build_svg(tuple_representation)
     # TODO rasterize and save
 
-def load_tuple_represenation(filename:str or Path=Path('5tuple_test.json')): #
+def load_tuple_representation(filename:str or Path): #
     if type(filename) == str: filename = Path(filename)
 
     if filename.suffix == '.json': 
@@ -90,7 +90,6 @@ def create_line_representation(filename:str or Path='test-bezier.svg') -> List[L
     return parsed_paths, erase
 
 def get_paths_from_svg(filename:str or Path='test-bezier.svg') -> List[str]:
-    print(filename)
     with open(filename, 'r') as f:
         lines = [str(line) for line in f.readlines()]
         svg = ""

@@ -193,7 +193,19 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         # inspired by Photo2SKetch_Dataset, semi-supervised fg-sbir
         # maybe max seq len has to be added
 
-        self.vectorized_sketches = [semiSupervised_utils.parse_svg(path) for path in self.sketch_paths]       
+        # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
+        self.vector_path = self.path / 'sketch_vectors'
+        self.vectorized_sketches = []
+
+        if not self.vector_path.is_dir():
+            for path in self.sketch_paths:
+                (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
+                self.vectorized_sketches.append(semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name))
+        else:
+            for path in self.sketch_paths:
+                vector_path = self.vector_path / path.parent.name / path.stem
+                self.vectorized_sketches.append(semiSupervised_utils.load_tuple_representation(vector_path))
+
         # scales coordinates by standard deviation
         """
         data = []
@@ -232,6 +244,6 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    dataset = VectorizedSketchyDatasetV1(transform=utils.get_sketch_gen_transform())
+    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
 
     print(dataset.__getitem__(0))
