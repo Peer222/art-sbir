@@ -27,8 +27,8 @@ def parse_svg(filename:str or Path='test-bezier.svg', result_path:str or Path=No
     if type(filename) == str: filename = Path(filename)
     if type(result_path) == str: result_path = Path(result_path)
 
-    parsed_paths, erase_flag = create_line_representation(filename)
-    result = {'filename': str(filename), 'erase_flag': erase_flag, 'image':[]} # (0.0, 0.0, 1,0,0) not sure wether needed or not | pen touched initial state due to paper ???
+    parsed_paths, shape, erase_flag = create_line_representation(filename)
+    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'image':[]} # (0.0, 0.0, 1,0,0) not sure wether needed or not | pen touched initial state due to paper ???
 
     x, y = 0, 0
 
@@ -80,14 +80,14 @@ def load_tuple_representation(filename:str or Path): #
 # ------ helper functions --------
 
 def create_line_representation(filename:str or Path='test-bezier.svg') -> List[List[str]]:
-    paths, erase = get_paths_from_svg(filename)
+    paths, shape, erase = get_paths_from_svg(filename)
     tokenized_paths = [ tokenize_path(path) for path in paths]
     parsed_paths = []
     for path in tokenized_paths:
         parsed_path = [convert_token_to_line(token) for token in path]
         parsed_paths.append(parsed_path)
 
-    return parsed_paths, erase
+    return parsed_paths, shape, erase
 
 def get_paths_from_svg(filename:str or Path='test-bezier.svg') -> List[str]:
     with open(filename, 'r') as f:
@@ -101,7 +101,15 @@ def get_paths_from_svg(filename:str or Path='test-bezier.svg') -> List[str]:
 
         erase_paths = re.findall('<path.*?\sd="([^"]+)"[^#]*#fff[^/]*/>', svg, re.DOTALL)
 
-        return paths, len(erase_paths)
+        shape = get_shape(svg)
+
+        return paths, shape, len(erase_paths)
+
+def get_shape(svg):
+    width, height = re.findall('<svg\swidth="(\d+)"\sheight="(\d+)"', svg)[0]
+    #height = float(re.findall('<svg\s.+?\sheight="(\d+)"', svg)[0])
+    print(width, height)
+    return float(width), float(height)
 
 def tokenize_path(path:str) -> List[str]:
     splitted_path = path.split('c')
