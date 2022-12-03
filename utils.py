@@ -9,6 +9,7 @@ from typing import List, Tuple, Dict
 
 import torch
 from torch import nn
+import torchvision.transforms as transforms
 
 from torchinfo import summary
 
@@ -50,6 +51,21 @@ MARGIN = 0.2 # Sketching without Worrying
 triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
+
+
+
+def get_sketch_gen_transform(type:str='train'):
+    transform_list = []
+    if type is 'train':
+        transform_list.extend([transforms.Resize(256)])
+    elif type is 'test':
+        transform_list.extend([transforms.Resize(256)])
+    # transform_list.extend(
+    #     [transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+    transform_list.extend(
+        [transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
+    return transforms.Compose(transform_list)
 
 
 # model saver and loader

@@ -7,6 +7,7 @@ from collections import defaultdict
 import random
 import re
 
+import numpy as np
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
@@ -14,6 +15,8 @@ from sklearn.model_selection import train_test_split
 
 import visualization
 import utils
+import semiSupervised_utils
+
 
 # provides interface for loading duplicate free image paths with corresponding images (used in inference.compute_image_features)
 class InferenceDataset(Dataset):
@@ -180,6 +183,36 @@ class SketchyDatasetV2(SketchyDatasetV1):
         return self.transform(sketch), self.transform(pos_img), self.transform(neg_img), label
 
 
+class VectorizedSketchyDatasetV1(SketchyDatasetV1):
+    
+    def __init__(self, sketch_format='svg', img_format='jpg', img_type='photos', transform=transforms.ToTensor(), 
+                mode='train', split_ratio=0.1, size=1.0, seed=42, include_erased:bool=True) -> None:
+
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+
+        # inspired by Photo2SKetch_Dataset, semi-supervised fg-sbir
+        # maybe max seq len has to be added
+
+        self.vectorized_sketches = [semiSupervised_utils.parse_svg(path) for path in self.sketch_paths]       
+        # scales coordinates by standard deviation
+        data = []
+        for vec_sketch in self.vectorized_sketches:
+            data.extend(vec_sketch['image'][:, 0])
+            data.extend(vec_sketch['image'][:, 1])
+        data = np.array(data)
+        scale_factor = np.std(data)
+
+        for vec_sketch in self.vectorized_sketches:
+            vec_sketch['image'][:, :2] /= scale_factor
+
+
+    def __getitem__(self, idx: int):
+        return { 'sketch_path': self.sketch_paths[idx], 'length': len(self.vectorized_sketches[idx]['image']),
+                'sketch_vector': torch.Tensor(self.vectorized_sketches[idx]['image']),
+                'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB'))}
+
+
+
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
 
@@ -189,5 +222,8 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'SketchyV2':
         train_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
         test_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
+    elif dataset == 'VectorizedSketchyV1':
+        train_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'train', split_ratio, size, seed, include_erased=True)
+        test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, include_erased=True)
 
     return train_dataset, test_dataset

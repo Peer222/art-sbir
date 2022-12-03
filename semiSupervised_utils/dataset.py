@@ -202,9 +202,9 @@ def get_dataloader(hp):
 
 def get_transform(type):
     transform_list = []
-    if type is 'Train':
+    if type is 'train':
         transform_list.extend([transforms.Resize(256)])
-    elif type is 'Test':
+    elif type is 'test':
         transform_list.extend([transforms.Resize(256)])
     # transform_list.extend(
     #     [transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
