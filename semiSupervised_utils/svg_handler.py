@@ -16,6 +16,7 @@ def build_svg(tuple_representation, result_path:str or Path=None) -> str: # retu
     for tuple in tuple_representation['image']:
         if tuple[2]: svg_content += f"l{tuple[0]},{tuple[1]}" # draw line
         if tuple[3]: svg_content += f"m{tuple[0]},{tuple[1]}" # move position
+        if tuple[4]: break
     svg_content += f"""" id="path" stroke-width="2" stroke="#000" fill="none"/>\n"""
     svg_content += """</g>\n </svg>\n"""
 

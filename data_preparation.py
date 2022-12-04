@@ -233,9 +233,13 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         """
 
     def __getitem__(self, idx: int):
+        # fill all sketches so they have same number of strokes
+        sketch = self.vectorized_sketches[idx]['image']
+        sketch_vector = np.zeros((self.hp.max_seq_len, 5))
+        sketch_vector[:sketch.shape[0], :] = semiSupervised_utils.reshape_vectorSketch(sketch)
         return { 'sketch_path': self.sketch_paths[idx], 'length': len(self.vectorized_sketches[idx]['image']),
-                'sketch_vector': semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx]['image']),
-                'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB'))}
+                'sketch_vector': sketch_vector,
+                'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB')) }
 
     @property
     def state_dict(self) -> Dict:

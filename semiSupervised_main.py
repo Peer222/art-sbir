@@ -111,6 +111,8 @@ def create_sample_sketches(model, dataloader_test, hp, result_path, max=10):
             rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(photo2sketch_output)
             samples.append((rgb_image, rasterized_sketch, original_sketch))
 
+            semiSupervised_utils.build_svg(photo2sketch_output, result_path / sketch_path.name)
+
     visualization.show_triplets(samples, result_path / 'samples.png')
 
 
@@ -221,7 +223,7 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
-    dataset_train, dataset_test = data_preparation.get_datasets(transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(size=0.01, transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
     dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=os.cpu_count())
