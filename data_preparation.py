@@ -197,17 +197,27 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         self.vector_path = self.path / 'sketch_vectors'
         self.vectorized_sketches = []
 
+        self.max_seq_len = 0
+        self.avg_seq_len = 0
+
         if not self.vector_path.is_dir():
             for path in self.sketch_paths:
                 (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
-                self.vectorized_sketches.append(semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name))
+                sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name)
+                self.vectorized_sketches.append(sketch)
+                self.max_seq_len = max(self.max_seq_len, sketch['length'])
+                self.avg_seq_len += sketch['length']
         else:
             for path in self.sketch_paths:
                 vector_path = self.vector_path / path.parent.name / (path.stem + '.json')
-                self.vectorized_sketches.append(semiSupervised_utils.load_tuple_representation(vector_path))
+                sketch = semiSupervised_utils.load_tuple_representation(vector_path)
+                self.vectorized_sketches.append(sketch)
+                self.max_seq_len = max(self.max_seq_len, sketch['length'])
+                self.avg_seq_len += sketch['length']
 
-        # calculate stats:
-        self.max_seq_len = 0
+        self.avg_seq_len /= len(self.vectorized_sketches)
+
+        print(f"max_seq_len: {self.avg_seq_len}, avg_seq_len: {self.max_seq_len:.3f}")
 
         # scales coordinates by standard deviation
         """
@@ -226,6 +236,13 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         return { 'sketch_path': self.sketch_paths[idx], 'length': len(self.vectorized_sketches[idx]['image']),
                 'sketch_vector': semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx]['image']),
                 'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB'))}
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['max_seq_len'] = self.max_seq_len
+        state_dict['avg_seq_len'] = self.avg_seq_len
+        return state_dict
 
 
 
