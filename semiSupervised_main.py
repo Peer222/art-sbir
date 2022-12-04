@@ -21,7 +21,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
     
     train_losses = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
-    test_losses = {}
+    test_losses = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
 
     start_time = timer()
 
@@ -30,7 +30,8 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
 
     for i_epoch in tqdm(range(hp.max_epoch)):
 
-        train_loss = []
+        train_loss = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
+        test_loss = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
 
         model.train()
         for i_batch, batch_data in tqdm(enumerate(dataloader_train)):
@@ -38,7 +39,6 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
             length_sketch = batch_data['length'].to(device) - 1
-            sketch_name = batch_data['sketch_path']
 
             # Encoder
             backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
@@ -71,25 +71,53 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             nn.utils.clip_grad_norm_(model.parameters(), hp.grad_clip)
             optimizer.step()
 
-
-            print(f'Step:{step} ** sup_p2s_loss:{sup_p2s_loss} ** kl_cost_rgb:{kl_cost_rgb} ** Total_loss:{loss}', flush=True)
-
             step += 1
+            
+            train_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
+            train_loss['kl_loss'] += (kl_cost_rgb.item() / hp.batchsize)
+            train_loss['total_loss'] += (loss.item() / hp.batchsize)
 
-            if loss.item() < current_loss:
-                #save model
-                pass
+        train_losses['reconstruction_loss'].append(train_loss['reconstruction_loss'] / len(dataloader_train))
+        train_losses['kl_loss'].append(train_loss['kl_loss'] / len(dataloader_train))
+        train_losses['total_loss'].append(train_loss['total_loss'] / len(dataloader_train))
 
-            current_loss = loss.item()
+        print(f"Epoch:{i_epoch} ** Train ** sup_p2s_loss:{train_losses[i_epoch]['reconstruction_loss']} ** kl_cost_rgb:{train_losses[i_epoch]['kl_loss']} ** Total_loss:{train_losses[i_epoch]['total_loss']}", flush=True)
 
-            if step % 5 == 0:
-                train_losses['reconstruction_loss'].append(sup_p2s_loss.item() / hp.batchsize)
-                train_losses['kl_loss'].append(kl_cost_rgb.item() / hp.batchsize)
-                train_losses['total_loss'].append(loss.item() / hp.batchsize)
+
+        for i_batch, batch_data in tqdm(enumerate(dataloader_test)):
+            rgb_image = batch_data['photo'].to(device)
+            sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
+            length_sketch = batch_data['length'].to(device) - 1
+
+            # Encoder
+            backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
+            rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
+
+            prior_distribution = torch.distributions.Normal(torch.zeros_like(rgb_encoded_dist.mean), torch.ones_like(rgb_encoded_dist.stddev))
+            kl_cost_rgb = torch.max(torch.distributions.kl_divergence(rgb_encoded_dist, prior_distribution).mean(), torch.tensor(hp.kl_tolerance).to(device))
+
+
+            # decoder
+            photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
+
+            x_target = sketch_vector.permute(1, 0, 2)
+
+            curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
+
+            sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+            loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
+
+        test_losses['reconstruction_loss'].append(test_loss['reconstruction_loss'] / len(dataloader_test))
+        test_losses['kl_loss'].append(test_loss['kl_loss'] / len(dataloader_test))
+        test_losses['total_loss'].append(test_loss['total_loss'] / len(dataloader_test))
+
+        print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses[i_epoch]['reconstruction_loss']} ** kl_cost_rgb:{test_losses[i_epoch]['kl_loss']} ** Total_loss:{test_losses[i_epoch]['total_loss']}", flush=True)
+        # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
+
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
-def create_sample_sketches(model, dataloader_test, hp, result_path, max=10):
+def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, max=10):
     samples = []
 
     model.eval()
@@ -100,12 +128,12 @@ def create_sample_sketches(model, dataloader_test, hp, result_path, max=10):
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
             length_sketch = batch_data['length'].to(device) - 1
-            sketch_path = batch_data['sketch_path']
+            sketch_path = dataset_test.sketch_paths[i_batch]
 
             backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
             rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
 
-            photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
+            photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
 
             original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
             rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(photo2sketch_output)
@@ -233,14 +261,37 @@ if __name__ == "__main__":
     model.to(device)
     #model.load_state_dict(torch.load('./modelCVPR21/QMUL/model_photo2Sketch_QMUL_2Dattention_8000_.pth'))
 
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
+    #optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
+    print(dataset_test.__getitem__(0))
 
-    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)
+    for i, batch_data in enumerate(dataloader_test):
+        if i > 0: break
+
+        rgb_image = batch_data['photo'].to(device)
+        sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
+        length_sketch = batch_data['length'].to(device) - 1
+        
+        # Encoder
+        backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
+        rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
+
+        prior_distribution = torch.distributions.Normal(torch.zeros_like(rgb_encoded_dist.mean), torch.ones_like(rgb_encoded_dist.stddev))
+        kl_cost_rgb = torch.max(torch.distributions.kl_divergence(rgb_encoded_dist, prior_distribution).mean(), torch.tensor(hp.kl_tolerance).to(device))
+
+
+        # decoder
+        photo2sketch_output, attention_plot = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
+
+        print(photo2sketch_output)
+
+
+
+    #training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)
 
     inference_dict = {}
 
-    result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
+    #result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
 
-    create_sample_sketches(model, dataloader_test, hp, result_path)
+    #create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path)

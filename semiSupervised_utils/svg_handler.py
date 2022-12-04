@@ -57,7 +57,7 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
             result['image'].append([dx, dy, pen_touched, pen_lifted, 0])
 
     result['image'] = reduce_strokes(result['image'], reduce_factor)
-    result['image'].append((0, 0, 0, 0, 1))
+    result['image'].append([0, 0, 0, 0, 1])
 
     if result_path:    
         #pickle.dump(result, open(result_path / filename.stem, 'wb'))

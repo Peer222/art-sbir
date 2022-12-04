@@ -69,7 +69,7 @@ class DecoderRNN2D(nn.Module):
         output_hiddens =  torch.FloatTensor(batch_size, self.max_seq_len + 1, self.dec_rnn_size).fill_(0).to(device)
 
 
-        hidden, cell = torch.split(F.tanh(self.fc_hc(z_vector)), self.dec_rnn_size, 1)
+        hidden, cell = torch.split(torch.tanh(self.fc_hc(z_vector)), self.dec_rnn_size, 1)
         hidden_cell = (hidden.unsqueeze(0).contiguous(), cell.unsqueeze(0).contiguous())
 
 
