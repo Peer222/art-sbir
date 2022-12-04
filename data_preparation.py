@@ -199,11 +199,13 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
         self.max_seq_len = 0
         self.avg_seq_len = 0
+        self.reduce_factor = 5
+        self.include_erased = include_erased
 
         if not self.vector_path.is_dir():
             for path in self.sketch_paths:
                 (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
-                sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name)
+                sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name, reduce_factor=self.reduce_factor)
                 self.vectorized_sketches.append(sketch)
                 self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
                 self.avg_seq_len += len(sketch['image'])
@@ -245,6 +247,8 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         state_dict = super().state_dict
         state_dict['max_seq_len'] = self.max_seq_len
         state_dict['avg_seq_len'] = self.avg_seq_len
+        state_dict['include_erased'] = self.include_erased
+        state_dict['reduce_factor'] = self.reduce_factor
         return state_dict
 
 

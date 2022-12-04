@@ -133,7 +133,7 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
             backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
             rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
 
-            photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
+            photo2sketch_output, attention_plot = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
 
             original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
             rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(photo2sketch_output)
@@ -146,23 +146,6 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
 
 """
 def Image2Sketch_Train(self, rgb_image, sketch_vector, length_sketch, step, sketch_name):
-                
-        ##############################################################
-        ##############################################################
-        # Cross Modal the Decoding 
-        ##############################################################
-        ##############################################################
-
-        if step%5 == 0:
-        
-            data = {}
-            data['Reconstrcution_Loss'] = sup_p2s_loss
-            data['kl_'] = kl_cost_rgb
-            data['Total Loss'] = loss
-        
-            self.visualizer.plot_scalars(data, step)
-
-
         if step%1 == 0:
 
             folder_name = os.path.join('./CVPR_SSL/' + '_'.join(sketch_name.split('/')[-1].split('_')[:-1]))
@@ -210,12 +193,6 @@ def Image2Sketch_Train(self, rgb_image, sketch_vector, length_sketch, step, sket
             # data['attention_2'] = torch.stack(data['attention_2'])
             #
             # self.visualizer.vis_image(data, step)
-
-
-
-        # return sup_p2s_loss, kl_cost_rgb, loss
-
-        return 0, 0, 0
 """
 
 if __name__ == "__main__":
@@ -261,9 +238,10 @@ if __name__ == "__main__":
     model.to(device)
     #model.load_state_dict(torch.load('./modelCVPR21/QMUL/model_photo2Sketch_QMUL_2Dattention_8000_.pth'))
 
-    #optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
+    """
     print(dataset_test.__getitem__(0))
 
     for i, batch_data in enumerate(dataloader_test):
@@ -286,12 +264,12 @@ if __name__ == "__main__":
 
         print(photo2sketch_output)
 
+    """
 
-
-    #training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)
+    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)
 
     inference_dict = {}
 
-    #result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
+    result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
 
-    #create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path)
+    create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path)
