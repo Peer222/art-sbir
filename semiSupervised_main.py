@@ -223,7 +223,7 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
-    dataset_train, dataset_test = data_preparation.get_datasets(size=0.01, transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.01, transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
     dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=os.cpu_count())
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
-    param_dict = dict(hp)
+    param_dict = vars(hp)
 
     training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)
 

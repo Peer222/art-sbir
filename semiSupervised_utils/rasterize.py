@@ -4,8 +4,6 @@ import scipy.ndimage
 from PIL import Image
 from matplotlib import pyplot as plt
 import torch
-from utils import to_normal_strokes
-
 
 def mydrawPNG(vector_image, Side = 256):
 
@@ -152,6 +150,22 @@ def mydrawPNG_from_list(vector_image, Side = 256):
 
 
 def batch_rasterize_relative(sketch):
+
+    def to_normal_strokes(big_stroke):
+        """Convert from stroke-5 format (from sketch-rnn paper) back to stroke-3."""
+        l = 0
+        for i in range(len(big_stroke)):
+            if big_stroke[i, 4] > 0:
+                l = i
+                break
+        if l == 0:
+            l = len(big_stroke)-1
+        result = np.zeros((l+1, 3))
+        result[:, 0:2] = big_stroke[0:l+1, 0:2]
+        result[:, 2] = big_stroke[0:l+1, 3]
+        result[-1, -1] = 1.
+        return result
+
 
     def to_stroke_list(sketch):
         ## sketch: an `.npz` style sketch from QuickDraw

@@ -194,7 +194,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         # maybe max seq len has to be added
 
         # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
-        self.vector_path = self.path / 'sketch_vectors'
+        self.vector_path = self.path / f'sketch_vectors_{mode}'
         self.vectorized_sketches = []
 
         self.max_seq_len = 0
@@ -205,19 +205,19 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
                 (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
                 sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name)
                 self.vectorized_sketches.append(sketch)
-                self.max_seq_len = max(self.max_seq_len, sketch['length'])
-                self.avg_seq_len += sketch['length']
+                self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
+                self.avg_seq_len += len(sketch['image'])
         else:
             for path in self.sketch_paths:
                 vector_path = self.vector_path / path.parent.name / (path.stem + '.json')
                 sketch = semiSupervised_utils.load_tuple_representation(vector_path)
                 self.vectorized_sketches.append(sketch)
-                self.max_seq_len = max(self.max_seq_len, sketch['length'])
-                self.avg_seq_len += sketch['length']
+                self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
+                self.avg_seq_len += len(sketch['image'])
 
         self.avg_seq_len /= len(self.vectorized_sketches)
 
-        print(f"max_seq_len: {self.avg_seq_len}, avg_seq_len: {self.max_seq_len:.3f}")
+        print(f"max_seq_len: {self.max_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
 
         # scales coordinates by standard deviation
         """
@@ -237,7 +237,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         sketch = self.vectorized_sketches[idx]['image']
         sketch_vector = np.zeros((self.hp.max_seq_len, 5))
         sketch_vector[:sketch.shape[0], :] = semiSupervised_utils.reshape_vectorSketch(sketch)
-        return { 'sketch_path': self.sketch_paths[idx], 'length': len(self.vectorized_sketches[idx]['image']),
+        return { 'sketch_path': self.sketch_paths[idx], 'length': len(sketch),
                 'sketch_vector': sketch_vector,
                 'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB')) }
 
