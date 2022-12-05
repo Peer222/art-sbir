@@ -6,6 +6,8 @@ import numpy as np
 
 import torch
 from PIL import Image
+from PIL import ImageOps
+import torchvision.transforms as transforms
 
 import json
 from pathlib import Path
@@ -36,12 +38,17 @@ def plot(plt, file: Path=None) -> None:
 
 # dataset.__getitem__() or dataset.load_image_sketch_tuple() -- expects torch.Tensor or PIL.Image
 def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
-    fig = plt.figure(figsize=(9, 3 * len(triplets)))
+    fig = plt.figure(figsize=(9, 2.7 * len(triplets)))
 
     rows, cols = len(triplets), 3
 
+    inverted = [0, 0, 0]
+
     if mode == 'sketch': titles = ["Sketch", "Matching image", "Non-matching image"]
-    else: titles = ['Image', 'Sketch', 'Original sketch']
+    elif mode == 'image': 
+        titles = ['Image', 'Artificial Sketch', 'Original sketch']
+        inverted = [0, 1, 0]
+    else: titles = ['','','']
 
     for i, tuple in enumerate(triplets):
         triplet = list(tuple)
@@ -51,7 +58,8 @@ def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
             plt.axis(False)
             if not i: plt.title(titles[j])
 
-            if type(triplet[j]) == torch.Tensor: triplet[j] = triplet[j].permute(1, 2, 0)
+            if inverted[j]: triplet[j] = transforms.RandomInvert(p=1)(triplet[j])
+            if type(triplet[j]) == torch.Tensor: triplet[j] = triplet[j].permute(1, 2, 0)# transforms.ToPILImage()(triplet[j]) # triplet[j].permute(1, 2, 0)
 
             plt.imshow(triplet[j])
 

@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torchvision import transforms
+from torchvision.models.vgg import VGG16_Weights
 import torchvision.models as backbone_
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -34,7 +35,7 @@ class Photo2Sketch(nn.Module):
 class EncoderCNN(nn.Module):
     def __init__(self):
         super(EncoderCNN, self).__init__()
-        self.feature = backbone_.vgg16(pretrained=True).features
+        self.feature = backbone_.vgg16(weights=VGG16_Weights.DEFAULT).features
         self.pool_method = nn.AdaptiveMaxPool2d(1)
         self.fc_mu = nn.Linear(512, 128)
         self.fc_std = nn.Linear(512, 128)

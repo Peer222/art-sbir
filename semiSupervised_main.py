@@ -28,13 +28,13 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
     step = 0
     current_loss = 1e+10
 
-    for i_epoch in tqdm(range(hp.max_epoch)):
+    for i_epoch in tqdm(range(hp.max_epoch), desc='epoch'):
 
-        train_loss = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
-        test_loss = {'total_loss': [], 'kl_loss': [], 'reconstruction_loss': []}
+        train_loss = {'total_loss': 0, 'kl_loss': 0, 'reconstruction_loss': 0}
+        test_loss = {'total_loss': 0, 'kl_loss': 0, 'reconstruction_loss': 0}
 
         model.train()
-        for i_batch, batch_data in tqdm(enumerate(dataloader_train)):
+        for i_batch, batch_data in tqdm(enumerate(dataloader_train), desc='iteration'):
 
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
@@ -52,10 +52,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
 
             ### end state already set in parse_svg but additionally to last line
-            #end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * rgb_image.shape[0]).unsqueeze(0).to(device).float()
-            #batch = torch.cat([sketch_vector, end_token], 0)
-            #x_target = batch.permute(1, 0, 2)  # batch-> Seq_Len, Batch, Feature_dim
-            x_target = sketch_vector.permute(1, 0, 2)
+            # end token added after sketch decoder -> otherwise error  why???
+            sketch_vector = sketch_vector.permute(1, 0, 2)
+            end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * sketch_vector.shape[0]).unsqueeze(1).to(device).float()
+            x_target = torch.cat([sketch_vector, end_token], 1)
 
             curr_learning_rate = ((hp.learning_rate - hp.min_learning_rate) * (hp.decay_rate) ** step + hp.min_learning_rate)
             curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
@@ -81,10 +81,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         train_losses['kl_loss'].append(train_loss['kl_loss'] / len(dataloader_train))
         train_losses['total_loss'].append(train_loss['total_loss'] / len(dataloader_train))
 
-        print(f"Epoch:{i_epoch} ** Train ** sup_p2s_loss:{train_losses[i_epoch]['reconstruction_loss']} ** kl_cost_rgb:{train_losses[i_epoch]['kl_loss']} ** Total_loss:{train_losses[i_epoch]['total_loss']}", flush=True)
+        print(f"Epoch:{i_epoch} ** Train ** sup_p2s_loss:{train_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{train_losses['kl_loss'][i_epoch]} ** Total_loss:{train_losses['total_loss'][i_epoch]}", flush=True)
 
 
-        for i_batch, batch_data in tqdm(enumerate(dataloader_test)):
+        for i_batch, batch_data in tqdm(enumerate(dataloader_test), desc='test'):
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
             length_sketch = batch_data['length'].to(device) - 1
@@ -100,7 +100,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             # decoder
             photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
 
-            x_target = sketch_vector.permute(1, 0, 2)
+            # end token added after sketch decoder -> otherwise error  why???
+            end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * sketch_vector.shape[0]).unsqueeze(0).to(device).float()
+            extended_sketch_vector = torch.cat([sketch_vector, end_token], 0)
+            x_target = extended_sketch_vector.permute(1, 0, 2)
 
             curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
 
@@ -111,7 +114,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         test_losses['kl_loss'].append(test_loss['kl_loss'] / len(dataloader_test))
         test_losses['total_loss'].append(test_loss['total_loss'] / len(dataloader_test))
 
-        print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses[i_epoch]['reconstruction_loss']} ** kl_cost_rgb:{test_losses[i_epoch]['kl_loss']} ** Total_loss:{test_losses[i_epoch]['total_loss']}", flush=True)
+        print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
 
@@ -123,84 +126,40 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
     model.eval()
     with torch.inference_mode():
         for i_batch, batch_data in enumerate(dataloader_test):
-            if i_batch > max: break
+            if i_batch * hp.batchsize > max: break
 
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
             length_sketch = batch_data['length'].to(device) - 1
-            sketch_path = dataset_test.sketch_paths[i_batch]
 
             backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
             rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
 
             photo2sketch_output, attention_plot = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
 
-            original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
-            rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(photo2sketch_output)
-            samples.append((rgb_image, rasterized_sketch, original_sketch))
+            for i in range(len(photo2sketch_output)):
+                if i_batch * hp.batchsize + i > max: break
+                sketch = photo2sketch_output[i]
 
-            semiSupervised_utils.build_svg(photo2sketch_output, result_path / sketch_path.name)
+                sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i]
+                image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i]
 
-    visualization.show_triplets(samples, result_path / 'samples.png')
+                image = Image.open(image_path)
+                rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
+                original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
+                samples.append((image, rasterized_sketch.cpu(), original_sketch))
 
+                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), result_path / sketch_path.name)
 
-"""
-def Image2Sketch_Train(self, rgb_image, sketch_vector, length_sketch, step, sketch_name):
-        if step%1 == 0:
+    visualization.show_triplets(samples, result_path / 'samples.png', mode='image')
 
-            folder_name = os.path.join('./CVPR_SSL/' + '_'.join(sketch_name.split('/')[-1].split('_')[:-1]))
-            if not os.path.exists(folder_name):
-                os.makedirs(folder_name)
-
-            sketch_vector_gt = sketch_vector.permute(1, 0, 2)
-
-            save_sketch(sketch_vector_gt[0], sketch_name)
-
-
-            with torch.no_grad():
-                photo2sketch_gen, attention_plot  = \
-                    self.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch+1, isTrain=False)
-
-            sketch_vector_gt = sketch_vector.permute(1, 0, 2)
-
-
-            for num, len in enumerate(length_sketch):
-                photo2sketch_gen[num, len:, 4 ] = 1.0
-                photo2sketch_gen[num, len:, 2:4] = 0.0
-
-            save_sketch_gen(photo2sketch_gen[0], sketch_name)
-
-            sketch_vector_gt_draw = semiSupervised_utils.batch_rasterize_relative(sketch_vector_gt)
-            photo2sketch_gen_draw = semiSupervised_utils.batch_rasterize_relative(photo2sketch_gen)
-
-            batch_redraw = []
-            plot_attention = showAttention(attention_plot, rgb_image, sketch_vector_gt_draw, photo2sketch_gen_draw, sketch_name)
-            # max_image = 5
-            # for a, b, c, d in zip(sketch_vector_gt_draw[:max_image], rgb_image.cpu()[:max_image],
-            #                       photo2sketch_gen_draw[:max_image], plot_attention[:max_image]):
-            #     batch_redraw.append(torch.cat((1. - a, b, 1. - c,  d), dim=-1))
-            #
-            # torchvision.utils.save_image(torch.stack(batch_redraw), './Redraw_Photo2Sketch_'
-            #                              + self.hp.setup + '/redraw_{}.jpg'.format(step),
-            #                              nrow=1, normalize=False)
-
-            # data = {'attention_1': [], 'attention_2':[]}
-            # for x in attention_plot:
-            #     data['attention_1'].append(x[0])
-            #     data['attention_2'].append(x[2])
-            #
-            # data['attention_1'] = torch.stack(data['attention_1'])
-            # data['attention_2'] = torch.stack(data['attention_2'])
-            #
-            # self.visualizer.vis_image(data, step)
-"""
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Photo2Sketch')
 
     parser.add_argument('--setup', type=str, default='Sketchy')
-    parser.add_argument('--batchsize', type=int, default=1)
+    parser.add_argument('--batchsize', type=int, default=64) # previous 1 / paper used 64
     parser.add_argument('--nThreads', type=int, default=8)
 
     parser.add_argument('--max_epoch', type=int, default=1)
@@ -231,7 +190,7 @@ if __name__ == "__main__":
     dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.01, transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
-    dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=os.cpu_count())
+    dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
 
 
     model = models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
@@ -241,32 +200,8 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
-    """
-    print(dataset_test.__getitem__(0))
 
-    for i, batch_data in enumerate(dataloader_test):
-        if i > 0: break
-
-        rgb_image = batch_data['photo'].to(device)
-        sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
-        length_sketch = batch_data['length'].to(device) - 1
-        
-        # Encoder
-        backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
-        rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
-
-        prior_distribution = torch.distributions.Normal(torch.zeros_like(rgb_encoded_dist.mean), torch.ones_like(rgb_encoded_dist.stddev))
-        kl_cost_rgb = torch.max(torch.distributions.kl_divergence(rgb_encoded_dist, prior_distribution).mean(), torch.tensor(hp.kl_tolerance).to(device))
-
-
-        # decoder
-        photo2sketch_output, attention_plot = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
-
-        print(photo2sketch_output)
-
-    """
-
-    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer)
+    training_dict = {}#train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
     inference_dict = {}
 

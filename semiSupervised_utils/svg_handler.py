@@ -8,12 +8,12 @@ import torch
 import numpy as np
 
 
-def build_svg(tuple_representation, result_path:str or Path=None) -> str: # returns svg string
+def build_svg(tuple_representation, shape, result_path:str or Path=None) -> str: # returns svg string
     if result_path and type(result_path) == str: result_path = Path(result_path)
 
-    svg_content = """<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">\n <g display="inline">\n <title>Layer 1</title>\n """
+    svg_content = f"""<svg width="{shape[0]}" height="{shape[1]}" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">\n <g display="inline">\n <title>Layer 1</title>\n """
     svg_content += '\n<path d="'
-    for tuple in tuple_representation['image']:
+    for tuple in tuple_representation:
         if tuple[2]: svg_content += f"l{tuple[0]},{tuple[1]}" # draw line
         if tuple[3]: svg_content += f"m{tuple[0]},{tuple[1]}" # move position
         if tuple[4]: break
@@ -57,7 +57,7 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
             result['image'].append([dx, dy, pen_touched, pen_lifted, 0])
 
     result['image'] = reduce_strokes(result['image'], reduce_factor)
-    result['image'].append([0, 0, 0, 0, 1])
+    # result['image'].append([0, 0, 0, 0, 1]) added after model and before loss calculation
 
     if result_path:    
         #pickle.dump(result, open(result_path / filename.stem, 'wb'))
@@ -175,7 +175,7 @@ def show_parsed_svg(line_representation:List[List[str]], new_filename:str or Pat
 if __name__ == '__main__':
     tuple_rep = parse_svg('../data/sketchy/sketches_svg/zebra/n02391049_9960-5.svg', '.', 5)
     #tuple_rep = reshape_vectorSketch(tuple_rep)
-    build_svg(tuple_rep, 'test-5.svg')
+    build_svg(tuple_rep['image'], tuple_rep['shape'], 'test-5.svg')
     #line_representation, erased = create_line_representation()
 
     #show_parsed_svg(line_representation)
