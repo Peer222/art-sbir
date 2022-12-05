@@ -187,7 +187,7 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.01, transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=1, transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=os.cpu_count())
@@ -195,13 +195,12 @@ if __name__ == "__main__":
 
     model = models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
-    #model.load_state_dict(torch.load('./modelCVPR21/QMUL/model_photo2Sketch_QMUL_2Dattention_8000_.pth'))
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
 
-    training_dict = {}#train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
+    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
     inference_dict = {}
 
