@@ -27,12 +27,12 @@ def build_svg(tuple_representation, shape, result_path:str or Path=None) -> str:
     return svg_content
 
 # parses svg from sketchy to semi-supervised fg-sbir format with tuple of 5
-def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=1): # returns tuple representaion (result)
+def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=1, max_length=100): # returns tuple representaion (result)
     if type(filename) == str: filename = Path(filename)
     if type(result_path) == str: result_path = Path(result_path)
 
     parsed_paths, shape, erase_flag = create_line_representation(filename)
-    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'reduce_factor': reduce_factor, 'image':[]} # (0.0, 0.0, 1,0,0) not sure wether needed or not | pen touched initial state due to paper ???
+    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'max_len':max_length, 'reduce_factor': reduce_factor, 'image':[]} # (0.0, 0.0, 1,0,0) not sure wether needed or not | pen touched initial state due to paper ???
 
     x, y = 0, 0
 
@@ -56,7 +56,12 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
 
             result['image'].append([dx, dy, pen_touched, pen_lifted, 0])
 
-    result['image'] = reduce_strokes(result['image'], reduce_factor)
+    result['original_length'] = len(result['image'])
+
+    # later added strokes are likely to be more irrelevant 
+    if max_length and len(result['image']) > 11 * max_length: result['image'][:10*max_length] # 1000 average is under 900 + margin
+    result['image'] = reduce_strokes(result['image'], reduce_factor, max_length)
+    if max_length and len(result['image']) > max_length: result['image'] = result['image'][:max_length]
     # result['image'].append([0, 0, 0, 0, 1]) added after model and before loss calculation
 
     if result_path:    
@@ -96,7 +101,9 @@ def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
 
 # ------ helper functions --------
 
-def reduce_strokes(sketch, factor):
+# if max_length specified strokes are reduced until number of strokes is lower than max_length by factor
+def reduce_strokes(sketch, factor, max_length=0):
+    if len(sketch) <= max_length: return sketch
     reduced_sketch = []
     i = 0
     while i < len(sketch):
@@ -109,6 +116,7 @@ def reduce_strokes(sketch, factor):
         reduced_sketch.append([round(dx, 5), round(dy, 5)] + sketch[i_pred][2:5])
         i += 1
 
+    if max_length and factor > 1 and len(reduced_sketch) < len(sketch): reduced_sketch =reduce_strokes(reduced_sketch, factor, max_length)
     return reduced_sketch
 
 def create_line_representation(filename:str or Path='test-bezier.svg') -> List[List[str]]:
@@ -173,7 +181,7 @@ def show_parsed_svg(line_representation:List[List[str]], new_filename:str or Pat
         svg.write(svg_content)
 
 if __name__ == '__main__':
-    tuple_rep = parse_svg('../data/sketchy/sketches_svg/zebra/n02391049_9960-5.svg', '.', 5)
+    tuple_rep = load_tuple_representation('data/sketchy/sketch_vectors_train_100_2/airplane/n02691156_14912-1.json')#parse_svg('../data/sketchy/sketches_svg/zebra/n02391049_9960-5.svg', '.', 5)
     #tuple_rep = reshape_vectorSketch(tuple_rep)
     build_svg(tuple_rep['image'], tuple_rep['shape'], 'test-5.svg')
     #line_representation, erased = create_line_representation()

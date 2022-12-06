@@ -193,21 +193,25 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         # inspired by Photo2SKetch_Dataset, semi-supervised fg-sbir
         # maybe max seq len has to be added
 
-        # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
-        self.vector_path = self.path / f'sketch_vectors_{mode}'
-        self.vectorized_sketches = []
-
         self.max_seq_len = 0
+        self.min_seq_len = 10e10
         self.avg_seq_len = 0
-        self.reduce_factor = 5
+
+        self.reduce_factor = 2
+        self.maximum_length = 100 # if 0 or reduce_factor = 1 itbwill not be applied
         self.include_erased = include_erased
+
+        # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
+        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}'
+        self.vectorized_sketches = []
 
         if not self.vector_path.is_dir():
             for path in self.sketch_paths:
                 (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
-                sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name, reduce_factor=self.reduce_factor)
+                sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name, reduce_factor=self.reduce_factor, max_length=self.maximum_length)
                 self.vectorized_sketches.append(sketch)
                 self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
+                self.min_seq_len = min(self.min_seq_len, len(sketch['image']))
                 self.avg_seq_len += len(sketch['image'])
         else:
             for path in self.sketch_paths:
@@ -215,11 +219,12 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
                 sketch = semiSupervised_utils.load_tuple_representation(vector_path)
                 self.vectorized_sketches.append(sketch)
                 self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
+                self.min_seq_len = min(self.min_seq_len, len(sketch['image']))
                 self.avg_seq_len += len(sketch['image'])
 
         self.avg_seq_len /= len(self.vectorized_sketches)
 
-        print(f"max_seq_len: {self.max_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
+        print(f"max_seq_len: {self.max_seq_len}, min_seq_len: {self.min_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
 
         # scales coordinates by standard deviation
         """
@@ -245,10 +250,11 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
     @property
     def state_dict(self) -> Dict:
         state_dict = super().state_dict
-        state_dict['max_seq_len'] = self.max_seq_len
-        state_dict['avg_seq_len'] = self.avg_seq_len
+        state_dict['sequence_stats'] = {'max_seq_len': self.max_seq_len, 'min_seq_len': self.min_seq_len, 'avg_seq_len': self.avg_seq_len}
+
         state_dict['include_erased'] = self.include_erased
         state_dict['reduce_factor'] = self.reduce_factor
+        state_dict['maximum_length'] = self.maximum_length
         return state_dict
 
 
@@ -272,4 +278,4 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 if __name__ == '__main__':
     dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
 
-    print(dataset.__getitem__(0))
+    #print(dataset.__getitem__(0))
