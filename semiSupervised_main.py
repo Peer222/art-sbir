@@ -101,9 +101,9 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
 
             # end token added after sketch decoder -> otherwise error  why???
-            end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * sketch_vector.shape[0]).unsqueeze(0).to(device).float()
-            extended_sketch_vector = torch.cat([sketch_vector, end_token], 0)
-            x_target = extended_sketch_vector.permute(1, 0, 2)
+            sketch_vector = sketch_vector.permute(1, 0, 2)
+            end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * sketch_vector.shape[0]).unsqueeze(1).to(device).float()
+            x_target = torch.cat([sketch_vector, end_token], 1)
 
             curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
 
