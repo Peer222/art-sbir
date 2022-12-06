@@ -110,6 +110,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
             loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
 
+            test_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
+            test_loss['kl_loss'] += (kl_cost_rgb.item() / hp.batchsize)
+            test_loss['total_loss'] += (loss.item() / hp.batchsize)
+
         test_losses['reconstruction_loss'].append(test_loss['reconstruction_loss'] / len(dataloader_test))
         test_losses['kl_loss'].append(test_loss['kl_loss'] / len(dataloader_test))
         test_losses['total_loss'].append(test_loss['total_loss'] / len(dataloader_test))
@@ -165,7 +169,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_epoch', type=int, default=1)
     parser.add_argument('--eval_freq_iter', type=int, default=1000)
 
-
+    # has to be changed in utils load model as well
     parser.add_argument('--enc_rnn_size', default=256)
     parser.add_argument('--dec_rnn_size', default=512)
     parser.add_argument('--z_size', default=128)
@@ -193,7 +197,7 @@ if __name__ == "__main__":
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
 
 
-    model = models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    model = utils.load_model('Photo2Sketch_VectorizedSketchyDatasetV1_2022-12-06_15-25.pth', 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
