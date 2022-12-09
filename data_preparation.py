@@ -295,17 +295,22 @@ class KaggleDatasetImgOnlyV1(Dataset):
     def __len__(self) -> int:
         return len(self.image_data)
 
-    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, int, int]: # pos_image, neg_image, style, genre
+    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image]:#, int, int]: # pos_image, neg_image, style, genre
         pos_img = self.image_data.iloc[idx]
         random_idx = random.randint(0, len(self.image_data) - 1)
         neg_img = self.image_data.iloc[random_idx]
-        return Image.open(pos_img['filename']), Image.open(neg_img['filename']), self.styles.loc[pos_img['style']]['index'], self.genres.loc[pos_img['genre']]['index']
 
-    def __getitem__(self, idx:int) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
-        pos_img, neg_img, style, genre = self.load_image_tuple(idx)
+        #style_label = self.styles.loc[pos_img['style']]['index']
+        #genre_label = self.genres.loc[pos_img['genre']]['index']
+        #if self.mode == 'test' and pos_img['genre'] > 'miniature': genre_label += 1 # genre miniature is missing in test dataset
+
+        return Image.open(pos_img['filename']), Image.open(neg_img['filename'])#, style_label, genre_label
+
+    def __getitem__(self, idx:int) -> Tuple[torch.Tensor, torch.Tensor]:#, int, int]:
+        pos_img, neg_img = self.load_image_tuple(idx)#, style, genre = self.load_image_tuple(idx)
         pos_img = self.transform(pos_img)
         neg_img = self.transform(neg_img)
-        return pos_img, neg_img, style, genre
+        return pos_img, neg_img#, style, genre
 
     @property
     def state_dict(self) -> Dict:
@@ -313,6 +318,7 @@ class KaggleDatasetImgOnlyV1(Dataset):
                 "seed": self.seed, "mode": self.mode, "transform": str(self.transform)}
 
 
+# !!! only works properly with size=1 due to eventually missing genres in one of the datasets (train|test) !!!
 class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
     def __init__(self, img_format='jpg', img_type="images", transform=transforms.ToTensor(), 
                 mode="train", size=0.1, seed=42) -> None:
@@ -327,7 +333,12 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
     def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, int, int]: # pos_image, neg_image, style, genre
         pos_img = self.image_data.iloc[idx]
         neg_img = random.choice(self.categorized_images[pos_img['genre']])
-        return Image.open(pos_img['filename']), Image.open(neg_img), self.styles.loc[pos_img['style']]['index'], self.genres.loc[pos_img['genre']]['index']
+
+        style_label = self.styles.loc[pos_img['style']]['index']
+        genre_label = self.genres.loc[pos_img['genre']]['index']
+        if self.mode == 'test' and pos_img['genre'] > 'miniature': genre_label += 1 # genre miniature is missing in test dataset
+
+        return Image.open(pos_img['filename']), Image.open(neg_img), style_label, genre_label
 
 
 # returns train and test dataset
@@ -342,11 +353,21 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'VectorizedSketchyV1':
         train_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'train', split_ratio, size, seed, include_erased=True)
         test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, include_erased=True)
+    
+    elif dataset == 'KaggleDatasetImgOnlyV1':
+        train_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
+    elif dataset == 'KaggleDatasetImgOnlyV2':
+        train_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
 
     return train_dataset, test_dataset
 
 
 if __name__ == '__main__':
     #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
-    dataset = KaggleDatasetImgOnlyV2(mode='test')
-    print(dataset.__getitem__(0))
+    dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
+    print(dataset.__getitem__(1))
+    #print(len(dataset.categorized_images.index))
+    dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
+    print( list(dataset2.categorized_images.index).index('miniature'))
