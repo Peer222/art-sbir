@@ -172,7 +172,7 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
 
                 svg_path = result_path / f'svgs_{epoch}'
                 if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
-                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), result_path / svg_path / sketch_path.name)
+                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / sketch_path.name)
 
     visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
 
