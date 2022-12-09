@@ -230,8 +230,8 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         """
         data = []
         for vec_sketch in self.vectorized_sketches:
-            data.extend(vec_sketch['image'][:, 0])
-            data.extend(vec_sketch['image'][:, 1])
+            data.extend(np.array(vec_sketch['image'])[:, 0])
+            data.extend(np.array(vec_sketch['image'])[:, 1])
         data = np.array(data)
         scale_factor = np.std(data)
 

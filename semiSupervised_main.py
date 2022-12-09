@@ -28,6 +28,8 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
     step = 0
     current_loss = 1e+10
 
+    result_path = None
+
     for i_epoch in tqdm(range(hp.max_epoch), desc='epoch'):
 
         train_loss = {'total_loss': 0, 'kl_loss': 0, 'reconstruction_loss': 0}
@@ -83,36 +85,37 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
 
         print(f"Epoch:{i_epoch} ** Train ** sup_p2s_loss:{train_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{train_losses['kl_loss'][i_epoch]} ** Total_loss:{train_losses['total_loss'][i_epoch]}", flush=True)
 
+        model.eval()
+        with torch.inference_mode():
+            for i_batch, batch_data in tqdm(enumerate(dataloader_test), desc='test'):
+                rgb_image = batch_data['photo'].to(device)
+                sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
+                length_sketch = batch_data['length'].to(device) - 1
 
-        for i_batch, batch_data in tqdm(enumerate(dataloader_test), desc='test'):
-            rgb_image = batch_data['photo'].to(device)
-            sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
-            length_sketch = batch_data['length'].to(device) - 1
+                # Encoder
+                backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
+                rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
 
-            # Encoder
-            backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image)
-            rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
-
-            prior_distribution = torch.distributions.Normal(torch.zeros_like(rgb_encoded_dist.mean), torch.ones_like(rgb_encoded_dist.stddev))
-            kl_cost_rgb = torch.max(torch.distributions.kl_divergence(rgb_encoded_dist, prior_distribution).mean(), torch.tensor(hp.kl_tolerance).to(device))
+                prior_distribution = torch.distributions.Normal(torch.zeros_like(rgb_encoded_dist.mean), torch.ones_like(rgb_encoded_dist.stddev))
+                kl_cost_rgb = torch.max(torch.distributions.kl_divergence(rgb_encoded_dist, prior_distribution).mean(), torch.tensor(hp.kl_tolerance).to(device))
 
 
-            # decoder
-            photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
+                # decoder
+                photo2sketch_output = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1)
 
-            # end token added after sketch decoder -> otherwise error  why???
-            sketch_vector = sketch_vector.permute(1, 0, 2)
-            end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * sketch_vector.shape[0]).unsqueeze(1).to(device).float()
-            x_target = torch.cat([sketch_vector, end_token], 1)
+                # end token added after sketch decoder -> otherwise error  why???
+                sketch_vector = sketch_vector.permute(1, 0, 2)
+                end_token = torch.stack([torch.tensor([0, 0, 0, 0, 1])] * sketch_vector.shape[0]).unsqueeze(1).to(device).float()
+                x_target = torch.cat([sketch_vector, end_token], 1)
 
-            curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
+                curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
 
-            sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
-            loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
+                sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+                loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
 
-            test_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
-            test_loss['kl_loss'] += (kl_cost_rgb.item() / hp.batchsize)
-            test_loss['total_loss'] += (loss.item() / hp.batchsize)
+                test_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
+                test_loss['kl_loss'] += (kl_cost_rgb.item() / hp.batchsize)
+                test_loss['total_loss'] += (loss.item() / hp.batchsize)
 
         test_losses['reconstruction_loss'].append(test_loss['reconstruction_loss'] / len(dataloader_test))
         test_losses['kl_loss'].append(test_loss['kl_loss'] / len(dataloader_test))
@@ -121,10 +124,24 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
+        if (i_epoch+1) % 5:
+            param_dict['epoch'] = i_epoch
+            training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
+            if not result_path or (i_epoch+1) % 20: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
+            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path)
+            create_loss_curves(train_losses, test_losses, i_epoch, result_path)
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
-def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, max=10):
+
+def create_loss_curves(train_losses, test_losses, epoch, result_path):
+    loss_path = result_path / f'loss_curves_{epoch}'
+    if not loss_path.is_dir(): loss_path.mkdir(parents=True, exist_ok=True)
+    visualization.show_loss_curves(train_losses['kl_loss'], test_losses['kl_loss'], loss_path / 'kl_loss_curves.png')
+    visualization.show_loss_curves(train_losses['reconstruction_loss'], test_losses['reconstruction_loss'], loss_path / 'reconstruction_loss_curves.png')
+    visualization.show_loss_curves(train_losses['total_loss'], test_losses['total_loss'], loss_path / 'total_loss_curves.png')
+
+def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch, max=10):
     samples = []
 
     model.eval()
@@ -153,9 +170,11 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
                 original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
                 samples.append((image, rasterized_sketch.cpu(), original_sketch))
 
-                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), result_path / sketch_path.name)
+                svg_path = result_path / f'svgs_{epoch}'
+                if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
+                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), result_path / svg_path / sketch_path.name)
 
-    visualization.show_triplets(samples, result_path / 'samples.png', mode='image')
+    visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
 
 
 if __name__ == "__main__":
@@ -208,6 +227,6 @@ if __name__ == "__main__":
 
     inference_dict = {}
 
-    result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
+    #result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
 
-    create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path)
+    #create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch=hp.max_epoch)

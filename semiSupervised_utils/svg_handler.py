@@ -181,9 +181,9 @@ def show_parsed_svg(line_representation:List[List[str]], new_filename:str or Pat
         svg.write(svg_content)
 
 if __name__ == '__main__':
-    tuple_rep = load_tuple_representation('data/sketchy/sketch_vectors_train_100_2/airplane/n02691156_14912-1.json')#parse_svg('../data/sketchy/sketches_svg/zebra/n02391049_9960-5.svg', '.', 5)
-    #tuple_rep = reshape_vectorSketch(tuple_rep)
-    build_svg(tuple_rep['image'], tuple_rep['shape'], 'test-5.svg')
+    tuple_rep = load_tuple_representation('data/sketchy/sketch_vectors_train_100_2/airplane/n02691156_14875-8.json')#parse_svg('../data/sketchy/sketches_svg/zebra/n02391049_9960-5.svg', '.', 5)
+    tuple_rep = reshape_vectorSketch(tuple_rep)
+    build_svg(tuple_rep['image'], tuple_rep['shape'], '../test_sketches/test-3.svg')
     #line_representation, erased = create_line_representation()
 
     #show_parsed_svg(line_representation)

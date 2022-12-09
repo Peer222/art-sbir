@@ -11,7 +11,7 @@ import torchvision.models as backbone_
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
+### semi-supervised fg-sbir sketch generation modules
 
 class Photo2Sketch(nn.Module):
 
