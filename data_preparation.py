@@ -8,6 +8,7 @@ import random
 import re
 
 import numpy as np
+import pandas as pd
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
@@ -107,6 +108,7 @@ class RetrievalDataset(Dataset):
     def state_dict(self) -> Dict:
         return {"dataset": f"{self.__class__.__name__}", "size": self.size, "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format, "sketch_format": self.sketch_format, 
                 "seed": self.seed, "split_ratio": self.split_ratio, "mode": self.mode, "transform": str(self.transform)}
+
 
 # sketchy data prep
 
@@ -258,6 +260,75 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         return state_dict
 
 
+# kaggle data prep
+
+class KaggleDatasetImgOnlyV1(Dataset):
+    def __init__(self, img_format='jpg', img_type="images", transform=transforms.ToTensor(), 
+                mode="train", size=0.1, seed=42) -> None:
+        super().__init__()
+
+        self.img_format, self.img_type, self.transform, self.mode, self.size, self.seed = img_format, img_type, transform, mode, size, seed
+
+        self.path = Path('../sketchit/public/paintings')#Path(f'data/kaggle/{self.img_type}/test')
+        if mode == 'train': self.path = Path('/nfs/data/iart/kaggle/img')
+
+        self.image_data = self._load_img_data() # sequential
+
+        self.styles = self._get_classes('style')
+        self.genres = self._get_classes('genre')
+
+        #print(self.styles.loc['Abstract Expressionism']['index'])
+        #print(self.styles.iloc[1].name)
+
+    def _load_img_data(self) -> pd.DataFrame:
+        self.csv_path = Path(f'data/kaggle/kaggle_art_dataset_{self.mode}.csv')
+        data = pd.read_csv(self.csv_path)
+        data['filename'] = self.path / data['filename']
+        return data.head( int(data.shape[0] * self.size) )
+
+    def _get_classes(self, category) -> pd.DataFrame:
+        categories = pd.DataFrame(self.image_data[category].drop_duplicates(), columns=[category]).sort_values(by=category).reset_index(drop=True)
+        categories['index'] = categories.index
+        categories.set_index(category, inplace=True)
+        return categories
+
+    def __len__(self) -> int:
+        return len(self.image_data)
+
+    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, int, int]: # pos_image, neg_image, style, genre
+        pos_img = self.image_data.iloc[idx]
+        random_idx = random.randint(0, len(self.image_data) - 1)
+        neg_img = self.image_data.iloc[random_idx]
+        return Image.open(pos_img['filename']), Image.open(neg_img['filename']), self.styles.loc[pos_img['style']]['index'], self.genres.loc[pos_img['genre']]['index']
+
+    def __getitem__(self, idx:int) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
+        pos_img, neg_img, style, genre = self.load_image_tuple(idx)
+        pos_img = self.transform(pos_img)
+        neg_img = self.transform(neg_img)
+        return pos_img, neg_img, style, genre
+
+    @property
+    def state_dict(self) -> Dict:
+        return {"dataset": f"{self.__class__.__name__}", "size": self.size, "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format, 
+                "seed": self.seed, "mode": self.mode, "transform": str(self.transform)}
+
+
+class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
+    def __init__(self, img_format='jpg', img_type="images", transform=transforms.ToTensor(), 
+                mode="train", size=0.1, seed=42) -> None:
+        super().__init__(img_format, img_type, transform, mode, size, seed)
+
+        self.categorized_images = self._get_categorized_images('genre')
+
+    def _get_categorized_images(self, category) -> List:
+        categorized = self.image_data.groupby(category)['filename'].apply(list)
+        return categorized
+
+    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, int, int]: # pos_image, neg_image, style, genre
+        pos_img = self.image_data.iloc[idx]
+        neg_img = random.choice(self.categorized_images[pos_img['genre']])
+        return Image.open(pos_img['filename']), Image.open(neg_img), self.styles.loc[pos_img['style']]['index'], self.genres.loc[pos_img['genre']]['index']
+
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
@@ -276,6 +347,6 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
-
-    #print(dataset.__getitem__(0))
+    #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    dataset = KaggleDatasetImgOnlyV2(mode='test')
+    print(dataset.__getitem__(0))
