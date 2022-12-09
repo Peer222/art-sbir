@@ -128,7 +128,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             param_dict['epoch'] = i_epoch
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
             if not result_path or (i_epoch+1) % 20: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
-            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path)
+            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
             create_loss_curves(train_losses, test_losses, i_epoch, result_path)
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
