@@ -36,7 +36,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         test_loss = {'total_loss': 0, 'kl_loss': 0, 'reconstruction_loss': 0}
 
         model.train()
-        for i_batch, batch_data in tqdm(enumerate(dataloader_train), desc='iteration'):
+        for i_batch, batch_data in enumerate(dataloader_train):
 
             rgb_image = batch_data['photo'].to(device)
             sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
@@ -87,7 +87,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
 
         model.eval()
         with torch.inference_mode():
-            for i_batch, batch_data in tqdm(enumerate(dataloader_test), desc='test'):
+            for i_batch, batch_data in enumerate(dataloader_test):
                 rgb_image = batch_data['photo'].to(device)
                 sketch_vector = batch_data['sketch_vector'].to(device).permute(1, 0, 2).float()
                 length_sketch = batch_data['length'].to(device) - 1
