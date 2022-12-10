@@ -246,6 +246,8 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         sketch = self.vectorized_sketches[idx]['image']
         sketch_vector = np.zeros((self.max_seq_len, 5))
         sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
+        # !!! added 
+        sketch_vector[len(sketch):, 4] = 1
         return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector),
                 'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB')) }
 
