@@ -207,6 +207,9 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}'
         self.vectorized_sketches = []
 
+        
+        if mode == 'train': self.sketch_paths.sort()
+
         if not self.vector_path.is_dir():
             for path in self.sketch_paths:
                 (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
@@ -370,9 +373,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    dataset = VectorizedSketchyDatasetV1(size=1, transform=utils.get_sketch_gen_transform())
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
-    dataset.__getitem__(16)
+    print(dataset.sketch_paths[:10])
     #print(len(dataset.categorized_images.index))
     #dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
     #print( list(dataset2.categorized_images.index).index('miniature'))
