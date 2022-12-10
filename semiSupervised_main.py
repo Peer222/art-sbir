@@ -127,7 +127,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         if (i_epoch+1) % 5 == 0:
             param_dict['epoch'] = i_epoch
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
-            if not result_path or (i_epoch+1) % 20 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
+            if not result_path or (i_epoch+1) % 25 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
             create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
             create_loss_curves(train_losses, test_losses, i_epoch, result_path)
 
@@ -210,6 +210,7 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
+    # if size is changed sketch vector folder has to be deleted 
     dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=1, transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
@@ -229,4 +230,4 @@ if __name__ == "__main__":
 
     #result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
 
-    #create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch=hp.max_epoch)
+    #create_sample_sketches(model, dataset_train, dataloader_train, hp, result_path, epoch=hp.max_epoch)

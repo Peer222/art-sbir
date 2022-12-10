@@ -229,7 +229,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         print(f"max_seq_len: {self.max_seq_len}, min_seq_len: {self.min_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
 
         # scales coordinates by standard deviation
-        """
+        
         data = []
         for vec_sketch in self.vectorized_sketches:
             data.extend(np.array(vec_sketch['image'])[:, 0])
@@ -238,14 +238,18 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         scale_factor = np.std(data)
 
         for vec_sketch in self.vectorized_sketches:
-            vec_sketch['image'][:, :2] /= scale_factor
-        """
+            for line in vec_sketch['image']:
+                line[:2] /= scale_factor
+        
 
     def __getitem__(self, idx: int):
         # fill all sketches so they have same number of strokes
         sketch = self.vectorized_sketches[idx]['image']
         sketch_vector = np.zeros((self.max_seq_len, 5))
         sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
+        # !!! added 
+        sketch_vector[len(sketch):, 4] = 1
+        
         return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector),
                 'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB')) }
 
@@ -257,6 +261,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         state_dict['include_erased'] = self.include_erased
         state_dict['reduce_factor'] = self.reduce_factor
         state_dict['maximum_length'] = self.maximum_length
+        state_dict['test'] = 1
         return state_dict
 
 
@@ -365,9 +370,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
-    dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
-    print(dataset.__getitem__(1))
+    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
+    dataset.__getitem__(16)
     #print(len(dataset.categorized_images.index))
-    dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
-    print( list(dataset2.categorized_images.index).index('miniature'))
+    #dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
+    #print( list(dataset2.categorized_images.index).index('miniature'))
