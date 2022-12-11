@@ -215,7 +215,7 @@ if __name__ == "__main__":
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
 
-
+    # initial model loaded
     model = utils.load_model('Photo2Sketch_VectorizedSketchyDatasetV1_2022-12-06_15-25.pth', 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 

@@ -271,8 +271,8 @@ class KaggleDatasetImgOnlyV1(Dataset):
 
         self.img_format, self.img_type, self.transform, self.mode, self.size, self.seed = img_format, img_type, transform, mode, size, seed
 
-        self.path = Path('../sketchit/public/paintings')#Path(f'data/kaggle/{self.img_type}/test')
-        if mode == 'train': self.path = Path('/nfs/data/iart/kaggle/img')
+        self.image_path = Path('../sketchit/public/paintings')#Path(f'data/kaggle/{self.img_type}/test')
+        if mode == 'train': self.image_path = Path('/nfs/data/iart/kaggle/img')
 
         self.image_data = self._load_img_data() # sequential
 
@@ -285,7 +285,7 @@ class KaggleDatasetImgOnlyV1(Dataset):
     def _load_img_data(self) -> pd.DataFrame:
         self.csv_path = Path(f'data/kaggle/kaggle_art_dataset_{self.mode}.csv')
         data = pd.read_csv(self.csv_path)
-        data['filename'] = self.path / data['filename']
+        data['filename'] = self.image_path / data['filename']
         return data.head( int(data.shape[0] * self.size) )
 
     def _get_classes(self, category) -> pd.DataFrame:
@@ -342,9 +342,32 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
 
         return Image.open(pos_img['filename']), Image.open(neg_img), style_label, genre_label
 
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int, int]: # pos_image, neg_image, style, genre
+        pos_img, neg_img, style, genre = self.load_image_tuple(idx)
+        return self.transform(pos_img), self.transform(neg_img), style, genre
+
+# not tested
+class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='placeholder', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+        super().__init__(img_format, img_type, transform, mode, size, seed)
+
+        self.sketch_format, self.sketch_type = sketch_format, sketch_type
+
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}/{self.mode}")
+
+        self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
+
+    def _load_sketch_paths(self) -> None:
+        for entry in self.image_data:
+            entry['sketchname'] = self.sketch_path / f"{entry['filename'].stem}.{self.sketch_format}"
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
+        pos_tensor, neg_tensor, style, genre = super().__getitem__(idx)
+        sketch = Image.open(self.image_data[idx]['sketchname'])
+        return self.transform(sketch), pos_tensor, neg_tensor, style, genre
 
 # returns train and test dataset
-def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
+def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
 
     if dataset == "Sketchy":
         train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
@@ -362,6 +385,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'KaggleDatasetImgOnlyV2':
         train_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
         test_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
+    elif dataset == 'KaggleDatasetV2':
+        train_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
 
     return train_dataset, test_dataset
 
