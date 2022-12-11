@@ -223,6 +223,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
+    param_dict['start_token'] = '[0, 0, 0, 1, 0]'
 
     training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
