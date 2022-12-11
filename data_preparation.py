@@ -229,7 +229,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         print(f"max_seq_len: {self.max_seq_len}, min_seq_len: {self.min_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
 
         # scales coordinates by standard deviation
-        """
+                
         data = []
         for vec_sketch in self.vectorized_sketches:
             data.extend(np.array(vec_sketch['image'])[:, 0])
@@ -238,8 +238,8 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         scale_factor = np.std(data)
 
         for vec_sketch in self.vectorized_sketches:
-            vec_sketch['image'][:, :2] /= scale_factor
-        """
+            for line in vec_sketch['image']:
+                line[:2] /= scale_factor
 
     def __getitem__(self, idx: int):
         # fill all sketches so they have same number of strokes
