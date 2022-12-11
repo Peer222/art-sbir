@@ -204,7 +204,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         self.include_erased = include_erased
 
         # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
-        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}'
+        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}_V2'
         self.vectorized_sketches = []
 
         
@@ -264,7 +264,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         state_dict['include_erased'] = self.include_erased
         state_dict['reduce_factor'] = self.reduce_factor
         state_dict['maximum_length'] = self.maximum_length
-        state_dict['test'] = 1
+        state_dict['vector_path'] = self.vector_path.name
         return state_dict
 
 
@@ -373,7 +373,7 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    dataset = VectorizedSketchyDatasetV1(size=1, transform=utils.get_sketch_gen_transform())
+    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
     print(dataset.sketch_paths[:10])
     #print(len(dataset.categorized_images.index))

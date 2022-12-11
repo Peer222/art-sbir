@@ -170,9 +170,9 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
                 original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
                 samples.append((image, rasterized_sketch.cpu(), original_sketch))
 
-                svg_path = result_path / f'svgs_{epoch}'
-                if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
-                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / sketch_path.name)
+                #svg_path = result_path / f'svgs_{epoch}'
+                #if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
+                #semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / sketch_path.name)
 
     visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
 
