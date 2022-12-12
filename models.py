@@ -64,7 +64,7 @@ class DecoderRNN2D(nn.Module):
 
         batch_size = z_vector.shape[0]
         # changed from [0, 0, 1, 0, 0] initial stroke shall be move instead of line
-        start_token = torch.stack([torch.tensor([0, 0, 0, 1, 0])] * batch_size).unsqueeze(0).float().to(device)
+        start_token = torch.stack([torch.tensor([0, 0, 1, 0, 0])] * batch_size).unsqueeze(0).float().to(device)
 
 
         self.training = isTrain

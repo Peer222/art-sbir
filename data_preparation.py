@@ -349,6 +349,105 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
         return Image.open(pos_img['filename']), Image.open(neg_img), style_label, genre_label
 
 
+class QuickDrawDatasetV1(Dataset):
+    def __init__(self, mode='train', transform=transforms.ToTensor()) -> None:
+        super().__init__()
+
+        self.path = Path('data/quick_draw')
+        self.categories = ['baseball bat', 'banana', 'apple', 'ant', 'alarm clock', 'airplane']
+
+        self.mode = 'train' if mode == 'train' else 'valid'
+        self.transform = transform
+
+        self.data, self.lengths = self._load_data()
+
+        self.normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        self.mean = torch.tensor([0.485, 0.456, 0.406])
+        self.std = torch.tensor([0.229, 0.224, 0.225])
+
+    def _load_data(self) -> np.array:
+        data = np.array([])
+        for category in self.categories:
+            data = np.concatenate([data, np.load(self.path / f'{category}.npz', encoding='latin1', allow_pickle=True)[self.mode]])
+
+        sizes = [len(seq) for seq in data]
+        self.max_seq_len = max(sizes)
+        self.avg_seq_len = int(np.round(np.mean(sizes) + np.std(sizes)))
+
+        data = self.purify(data)
+        data = self.normalize(data)
+
+        strokes = []
+        lengths = []
+        for seq in data:
+            len_seq = len(seq[:, 0])
+            new_seq = np.zeros((self.max_seq_len, 5))
+            new_seq[0:len_seq, :2] = seq[:, :2]
+            new_seq[0:len_seq, 3] = seq[:, 2]
+            new_seq[0:len_seq, 2] = 1 - new_seq[0:len_seq, 3]
+            new_seq[(len_seq-1):, 4] = 1
+            new_seq[(len_seq - 1), 2:4] = 0
+            strokes.append(new_seq)
+            lengths.append(len(seq[:, 0]))
+
+        return strokes, lengths
+
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+        sketch = torch.from_numpy(self.data[idx]).float().unsqueeze(0)
+
+        batch_image = 1. - semiSupervised_utils.batch_rasterize_relative(sketch)/255.
+        batch_image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None])
+
+        return { 'length': self.lengths[idx], 'sketch_vector': sketch.squeeze(), 'photo': batch_image.squeeze() }
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+
+    def purify(self, strokes):
+        """removes to small or too long sequences + removes large gaps"""
+        data = []
+        for seq in strokes:
+            if seq.shape[0] <= self.max_seq_len and seq.shape[0] > 10:
+                seq = np.minimum(seq, 1000)
+                seq = np.maximum(seq, -1000)
+                seq = np.array(seq, dtype=np.float32)
+                data.append(seq)
+        return data
+
+    def max_size(self, data):
+        """larger sequence length in the data set"""
+        sizes = [len(seq) for seq in data]
+        self.avg_seq_len = np.round(np.mean(sizes) + np.std(sizes))
+
+        # greater_than_average = 0
+        # for seq in data:
+        #     if len(seq) > self.hp.average_len:
+        #         greater_than_average +=1
+
+        return max(sizes)
+
+
+    def calculate_normalizing_scale_factor(self, strokes):
+        """Calculate the normalizing factor explained in appendix of sketch-rnn."""
+        data = []
+        for i in range(len(strokes)):
+            for j in range(len(strokes[i])):
+                data.append(strokes[i][j, 0])
+                data.append(strokes[i][j, 1])
+        data = np.array(data)
+        return np.std(data)
+
+    def normalize(self, strokes):
+        """Normalize entire dataset (delta_x, delta_y) by the scaling factor."""
+        data = []
+        scale_factor = self.calculate_normalizing_scale_factor(strokes)
+        for seq in strokes:
+            seq[:, 0:2] /= scale_factor
+            data.append(seq)
+        return data
+
+
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
 
@@ -364,18 +463,28 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     
     elif dataset == 'KaggleDatasetImgOnlyV1':
         train_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
-        test_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'test', size, seed)
     elif dataset == 'KaggleDatasetImgOnlyV2':
         train_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
-        test_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'test', size, seed)
+
+    elif dataset == 'QuickDrawDatasetV1':
+        train_dataset = QuickDrawDatasetV1('train')
+        test_dataset = QuickDrawDatasetV1('test')
 
     return train_dataset, test_dataset
 
 
 if __name__ == '__main__':
-    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
-    print(dataset.sketch_paths[:10])
+    #print(dataset.sketch_paths[:10])
     #print(len(dataset.categorized_images.index))
     #dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
     #print( list(dataset2.categorized_images.index).index('miniature'))
+
+    dataset = QuickDrawDatasetV1()
+
+    print(dataset.__getitem__(0))
+
+    print(len(dataset))

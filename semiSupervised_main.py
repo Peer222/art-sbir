@@ -211,7 +211,7 @@ if __name__ == "__main__":
     hp = parser.parse_args()
 
     # if size is changed sketch vector folder has to be deleted 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=1, transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='QuickDrawDatasetV1', size=1, transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
-    param_dict['start_token'] = '[0, 0, 0, 1, 0]'
+    #param_dict['start_token'] = '[0, 0, 0, 1, 0]'
 
     training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
