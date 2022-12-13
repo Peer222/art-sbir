@@ -477,6 +477,8 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         train_dataset = QuickDrawDatasetV1('train')
         test_dataset = QuickDrawDatasetV1('test')
 
+    print(f'{train_dataset.state_dict["dataset"]} loaded', flush=True)
+
     return train_dataset, test_dataset
 
 

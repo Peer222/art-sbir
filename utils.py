@@ -73,7 +73,7 @@ def get_sketch_gen_transform(type:str='train'):
 # loads resnet50m state dicts or arbitrary models
 def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
     path = Path("models/") / name
-    loaded = torch.load(path)
+    loaded = torch.load(path)#, map_location=torch.device('cpu')) # map location 
     model = None
 
     if isinstance(loaded, dict):
@@ -88,6 +88,7 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
         elif dataset == 'VectorizedSketchyV1':
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(128, 512, 20, max_seq_len)
+            #model.load_state_dict(loaded)
     else:
         print("Model completely loaded from file")
         model = loaded

@@ -124,7 +124,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
-        if (i_epoch+1) % 5 == 0:
+        if (i_epoch+1) % 5 == 0 or i_epoch == 0:
             param_dict['epoch'] = i_epoch
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
             if not result_path or (i_epoch+1) % 25 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
@@ -161,14 +161,15 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
             for i in range(len(photo2sketch_output)):
                 if i_batch * hp.batchsize + i > max: break
                 sketch = photo2sketch_output[i]
+                image = rgb_image[i]
 
-                sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i]
-                image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i]
+                #sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i]
+                #image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i]
 
-                image = Image.open(image_path)
+                #image = Image.open(image_path)
                 rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
-                original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
-                samples.append((image, rasterized_sketch.cpu(), original_sketch))
+                #original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
+                samples.append((image.cpu(), rasterized_sketch.cpu(), image.cpu()))
 
                 #svg_path = result_path / f'svgs_{epoch}'
                 #if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
@@ -217,13 +218,15 @@ if __name__ == "__main__":
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
 
     # initial model is used
-    model = utils.load_model('Photo2Sketch_VectorizedSketchyDatasetV1_2022-12-06_15-25.pth', 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    model = utils.load_model('Photo2Sketch_VectorizedSketchyDatasetV1_2022-12-11_14-31.pth', 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
     #param_dict['start_token'] = '[0, 0, 0, 1, 0]'
+
+    #create_sample_sketches(model, dataset_train, dataloader_train, hp, Path('./'), 0, 10)
 
     training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
