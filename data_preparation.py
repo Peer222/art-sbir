@@ -403,6 +403,11 @@ class QuickDrawDatasetV1(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
+    @property
+    def state_dict(self) -> Dict:
+        return {"dataset": f"{self.__class__.__name__}", "size": 1.0, "img_number": len(self), "img_type": 'sketch', "img_format": 'npz', "sketch_format": 'npz', 
+                "seed": 0, "split_ratio": 0, "mode": self.mode, "transform": '0'}
+
 
     def purify(self, strokes):
         """removes to small or too long sequences + removes large gaps"""
