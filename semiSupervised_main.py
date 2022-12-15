@@ -4,6 +4,7 @@ from timeit import default_timer as timer
 import os
 from pathlib import Path
 from PIL import Image
+import json
 
 import torch
 from torch import nn
@@ -163,17 +164,25 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
                 sketch = photo2sketch_output[i]
                 image = rgb_image[i]
 
-                #sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i]
-                #image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i]
+                svg_path = result_path / f'svgs_{epoch}'
+                if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
+                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / f"sketch_{i}.svg")
 
-                #image = Image.open(image_path)
+                tuple_path = result_path / f'tuples_{epoch}'
+                if not tuple_path.is_dir(): tuple_path.mkdir(parents=True, exist_ok=True)
+                with open(tuple_path / (f"sketch_{i}" + '.json'), 'w') as f:
+                    json.dump(sketch.cpu().tolist(), f)
+
+                sketch[length_sketch[i]:, 4 ] = 1.0
+                sketch[length_sketch[i]:, 2:4] = 0.0
+
+                #sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i] #Quickdraw
+                #image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i] #QUickdraw
+
+                #image = Image.open(image_path) #quickdraw
                 rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
-                #original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
-                samples.append((image.cpu(), rasterized_sketch.cpu(), image.cpu()))
-
-                #svg_path = result_path / f'svgs_{epoch}'
-                #if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
-                #semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / sketch_path.name)
+                #original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png')) #quickdraw
+                samples.append((image.cpu(), rasterized_sketch.cpu(), image.cpu())) #original_sketch.cpu() quickdraw
 
     visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
 
@@ -218,7 +227,7 @@ if __name__ == "__main__":
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
 
     # initial model is used
-    model = utils.load_model('Photo2Sketch_VectorizedSketchyDatasetV1_2022-12-11_14-31.pth', 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    model = utils.load_model('Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32.pth', 'QuickDrawDatasetV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
@@ -226,9 +235,9 @@ if __name__ == "__main__":
     param_dict = vars(hp)
     #param_dict['start_token'] = '[0, 0, 0, 1, 0]'
 
-    #create_sample_sketches(model, dataset_train, dataloader_train, hp, Path('./'), 0, 10)
+    create_sample_sketches(model, dataset_test, dataloader_test, hp, Path('./results/Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32'), 0, 10)
 
-    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
+    #training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
     inference_dict = {}
 
