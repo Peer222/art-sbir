@@ -98,7 +98,7 @@ def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
     vector_sketch[:, 1] = vector_sketch[:, 1] / vectorized_sketch['shape'][1] * img_height
     vectorized_sketch['original_shape'] = vectorized_sketch['shape']
     vectorized_sketch['shape'] = (img_width, img_height)
-    vectorized_sketch['image'] = vector_sketch
+    vectorized_sketch['image'] = vector_sketch[1:] # sketch starts at origin
     return vectorized_sketch
     
 

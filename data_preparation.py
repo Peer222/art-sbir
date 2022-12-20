@@ -232,7 +232,11 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         print(f"max_seq_len: {self.max_seq_len}, min_seq_len: {self.min_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
 
         # scales coordinates by standard deviation
-        
+        self.sketches = [ semiSupervised_utils.reshape_vectorSketch(sketch)['image'] for sketch in self.vectorized_sketches ]
+
+        self.sketches= self.purify(self.sketches)
+        self.sketches = self.normalize(self.sketches)
+        """
         data = []
         for vec_sketch in self.vectorized_sketches:
             data.extend(np.array(vec_sketch['image'])[:, 0])
@@ -240,16 +244,21 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         data = np.array(data)
         scale_factor = np.std(data)
 
+        print(self.vectorized_sketches[0])
+
         for vec_sketch in self.vectorized_sketches:
             for line in vec_sketch['image']:
                 line[:2] /= scale_factor
+        """
         
 
     def __getitem__(self, idx: int):
         # fill all sketches so they have same number of strokes
-        sketch = self.vectorized_sketches[idx]['image']
+        #sketch = self.vectorized_sketches[idx]['image']
+        sketch = self.sketches[idx]
         sketch_vector = np.zeros((self.max_seq_len, 5))
-        sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
+        #sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
+        sketch_vector[:len(sketch), :] = sketch
         # !!! added 
         sketch_vector[len(sketch):, 4] = 1
         
@@ -266,6 +275,45 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         state_dict['maximum_length'] = self.maximum_length
         state_dict['vector_path'] = self.vector_path.name
         return state_dict
+
+
+    def purify(self, strokes):
+        """removes to small or too long sequences + removes large gaps"""
+        data = []
+        for seq in strokes:
+            if seq.shape[0] <= self.max_seq_len and seq.shape[0] > 10:
+                seq = np.minimum(seq, 1000)
+                seq = np.maximum(seq, -1000)
+                seq = np.array(seq, dtype=np.float32)
+                data.append(seq)
+        return data
+
+    def max_size(self, data):
+        """larger sequence length in the data set"""
+        sizes = [len(seq) for seq in data]
+        self.avg_seq_len = np.round(np.mean(sizes) + np.std(sizes))
+
+        return max(sizes)
+
+
+    def calculate_normalizing_scale_factor(self, strokes):
+        """Calculate the normalizing factor explained in appendix of sketch-rnn."""
+        data = []
+        for i in range(len(strokes)):
+            for j in range(len(strokes[i])):
+                data.append(strokes[i][j, 0])
+                data.append(strokes[i][j, 1])
+        data = np.array(data)
+        return np.std(data)
+
+    def normalize(self, strokes):
+        """Normalize entire dataset (delta_x, delta_y) by the scaling factor."""
+        data = []
+        scale_factor = self.calculate_normalizing_scale_factor(strokes)
+        for seq in strokes:
+            seq[:, 0:2] /= scale_factor
+            data.append(seq)
+        return data
 
 
 # kaggle data prep
@@ -425,11 +473,6 @@ class QuickDrawDatasetV1(Dataset):
         sizes = [len(seq) for seq in data]
         self.avg_seq_len = np.round(np.mean(sizes) + np.std(sizes))
 
-        # greater_than_average = 0
-        # for seq in data:
-        #     if len(seq) > self.hp.average_len:
-        #         greater_than_average +=1
-
         return max(sizes)
 
 
@@ -483,7 +526,11 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    torch.set_printoptions(precision=4, sci_mode=False)
+
+    dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+
+    tuple_test = dataset2.__getitem__(0)
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
     #print(dataset.sketch_paths[:10])
     #print(len(dataset.categorized_images.index))
@@ -491,7 +538,15 @@ if __name__ == '__main__':
     #print( list(dataset2.categorized_images.index).index('miniature'))
 
     dataset = QuickDrawDatasetV1()
+    quick_sketch = semiSupervised_utils.batch_rasterize_relative(dataset.__getitem__(0)['sketch_vector'].unsqueeze(0)).squeeze()
+    sketchy_sketch = semiSupervised_utils.batch_rasterize_relative(tuple_test['sketch_vector'].unsqueeze(0)).squeeze()
 
-    print(dataset.__getitem__(0))
+    print(sketchy_sketch.shape, quick_sketch.shape, tuple_test['photo'].shape)
+    print(dataset2.sketch_paths[0])
 
-    print(len(dataset))
+    visualization.show_triplets([[quick_sketch, tuple_test['photo'], sketchy_sketch]], Path('.') / f'samples_test.png', mode='image')
+
+    #print(dataset.__getitem__(0))
+    #print(dataset2.__getitem__(0))
+
+    #print(len(dataset))
