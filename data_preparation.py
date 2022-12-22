@@ -396,6 +396,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'VectorizedSketchyV1':
         train_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'train', split_ratio, size, seed, include_erased=True)
         test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, include_erased=True)
+    elif dataset == 'SketchyPix2Pix':
+        train_dataset = SketchyDatasetPix2Pix(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
+        test_dataset = SketchyDatasetPix2Pix(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
     
     elif dataset == 'KaggleDatasetImgOnlyV1':
         train_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
