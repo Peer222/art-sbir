@@ -7,6 +7,8 @@ from collections import defaultdict
 import random
 import re
 
+import numpy as np
+import pandas as pd
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
@@ -14,6 +16,8 @@ from sklearn.model_selection import train_test_split
 
 import visualization
 import utils
+import semiSupervised_utils
+
 
 # provides interface for loading duplicate free image paths with corresponding images (used in inference.compute_image_features)
 class InferenceDataset(Dataset):
@@ -105,6 +109,7 @@ class RetrievalDataset(Dataset):
         return {"dataset": f"{self.__class__.__name__}", "size": self.size, "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format, "sketch_format": self.sketch_format, 
                 "seed": self.seed, "split_ratio": self.split_ratio, "mode": self.mode, "transform": str(self.transform)}
 
+
 # sketchy data prep
 
 # dataset containing all sketch/photo pairs of sketchy
@@ -180,8 +185,189 @@ class SketchyDatasetV2(SketchyDatasetV1):
         return self.transform(sketch), self.transform(pos_img), self.transform(neg_img), label
 
 
+class VectorizedSketchyDatasetV1(SketchyDatasetV1):
+    
+    def __init__(self, sketch_format='svg', img_format='jpg', img_type='photos', transform=transforms.ToTensor(), 
+                mode='train', split_ratio=0.1, size=1.0, seed=42, include_erased:bool=True) -> None:
+
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+
+        # inspired by Photo2SKetch_Dataset, semi-supervised fg-sbir
+        # maybe max seq len has to be added
+
+        self.max_seq_len = 0
+        self.min_seq_len = 10e10
+        self.avg_seq_len = 0
+
+        self.reduce_factor = 2
+        self.maximum_length = 100 # if 0 or reduce_factor = 1 itbwill not be applied
+        self.include_erased = include_erased
+
+        # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
+        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}'
+        self.vectorized_sketches = []
+
+        if not self.vector_path.is_dir():
+            for path in self.sketch_paths:
+                (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
+                sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name, reduce_factor=self.reduce_factor, max_length=self.maximum_length)
+                self.vectorized_sketches.append(sketch)
+                self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
+                self.min_seq_len = min(self.min_seq_len, len(sketch['image']))
+                self.avg_seq_len += len(sketch['image'])
+        else:
+            for path in self.sketch_paths:
+                vector_path = self.vector_path / path.parent.name / (path.stem + '.json')
+                sketch = semiSupervised_utils.load_tuple_representation(vector_path)
+                self.vectorized_sketches.append(sketch)
+                self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
+                self.min_seq_len = min(self.min_seq_len, len(sketch['image']))
+                self.avg_seq_len += len(sketch['image'])
+
+        self.avg_seq_len /= len(self.vectorized_sketches)
+
+        print(f"max_seq_len: {self.max_seq_len}, min_seq_len: {self.min_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
+
+        # scales coordinates by standard deviation
+                
+        data = []
+        for vec_sketch in self.vectorized_sketches:
+            data.extend(np.array(vec_sketch['image'])[:, 0])
+            data.extend(np.array(vec_sketch['image'])[:, 1])
+        data = np.array(data)
+        scale_factor = np.std(data)
+
+        for vec_sketch in self.vectorized_sketches:
+            for line in vec_sketch['image']:
+                line[:2] /= scale_factor
+
+    def __getitem__(self, idx: int):
+        # fill all sketches so they have same number of strokes
+        sketch = self.vectorized_sketches[idx]['image']
+        sketch_vector = np.zeros((self.max_seq_len, 5))
+        sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
+        # !!! added 
+        sketch_vector[len(sketch):, 4] = 1
+        return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector),
+                'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB')) }
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['sequence_stats'] = {'max_seq_len': self.max_seq_len, 'min_seq_len': self.min_seq_len, 'avg_seq_len': self.avg_seq_len}
+
+        state_dict['include_erased'] = self.include_erased
+        state_dict['reduce_factor'] = self.reduce_factor
+        state_dict['maximum_length'] = self.maximum_length
+        return state_dict
+
+
+# kaggle data prep
+
+class KaggleDatasetImgOnlyV1(Dataset):
+    def __init__(self, img_format='jpg', img_type="images", transform=transforms.ToTensor(), 
+                mode="train", size=0.1, seed=42) -> None:
+        super().__init__()
+
+        self.img_format, self.img_type, self.transform, self.mode, self.size, self.seed = img_format, img_type, transform, mode, size, seed
+
+        self.image_path = Path('../sketchit/public/paintings')#Path(f'data/kaggle/{self.img_type}/test')
+        if mode == 'train': self.image_path = Path('/nfs/data/iart/kaggle/img')
+
+        self.image_data = self._load_img_data() # sequential
+
+        self.styles = self._get_classes('style')
+        self.genres = self._get_classes('genre')
+
+        #print(self.styles.loc['Abstract Expressionism']['index'])
+        #print(self.styles.iloc[1].name)
+
+    def _load_img_data(self) -> pd.DataFrame:
+        self.csv_path = Path(f'data/kaggle/kaggle_art_dataset_{self.mode}.csv')
+        data = pd.read_csv(self.csv_path)
+        data['filename'] = self.image_path / data['filename']
+        return data.head( int(data.shape[0] * self.size) )
+
+    def _get_classes(self, category) -> pd.DataFrame:
+        categories = pd.DataFrame(self.image_data[category].drop_duplicates(), columns=[category]).sort_values(by=category).reset_index(drop=True)
+        categories['index'] = categories.index
+        categories.set_index(category, inplace=True)
+        return categories
+
+    def __len__(self) -> int:
+        return len(self.image_data)
+
+    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image]:#, int, int]: # pos_image, neg_image, style, genre
+        pos_img = self.image_data.iloc[idx]
+        random_idx = random.randint(0, len(self.image_data) - 1)
+        neg_img = self.image_data.iloc[random_idx]
+
+        #style_label = self.styles.loc[pos_img['style']]['index']
+        #genre_label = self.genres.loc[pos_img['genre']]['index']
+        #if self.mode == 'test' and pos_img['genre'] > 'miniature': genre_label += 1 # genre miniature is missing in test dataset
+
+        return Image.open(pos_img['filename']), Image.open(neg_img['filename'])#, style_label, genre_label
+
+    def __getitem__(self, idx:int) -> Tuple[torch.Tensor, torch.Tensor]:#, int, int]:
+        pos_img, neg_img = self.load_image_tuple(idx)#, style, genre = self.load_image_tuple(idx)
+        pos_img = self.transform(pos_img)
+        neg_img = self.transform(neg_img)
+        return pos_img, neg_img#, style, genre
+
+    @property
+    def state_dict(self) -> Dict:
+        return {"dataset": f"{self.__class__.__name__}", "size": self.size, "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format, 
+                "seed": self.seed, "mode": self.mode, "transform": str(self.transform)}
+
+
+# !!! only works properly with size=1 due to eventually missing genres in one of the datasets (train|test) !!!
+class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
+    def __init__(self, img_format='jpg', img_type="images", transform=transforms.ToTensor(), 
+                mode="train", size=0.1, seed=42) -> None:
+        super().__init__(img_format, img_type, transform, mode, size, seed)
+
+        self.categorized_images = self._get_categorized_images('genre')
+
+    def _get_categorized_images(self, category) -> List:
+        categorized = self.image_data.groupby(category)['filename'].apply(list)
+        return categorized
+
+    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, int, int]: # pos_image, neg_image, style, genre
+        pos_img = self.image_data.iloc[idx]
+        neg_img = random.choice(self.categorized_images[pos_img['genre']])
+
+        style_label = self.styles.loc[pos_img['style']]['index']
+        genre_label = self.genres.loc[pos_img['genre']]['index']
+        if self.mode == 'test' and pos_img['genre'] > 'miniature': genre_label += 1 # genre miniature is missing in test dataset
+
+        return Image.open(pos_img['filename']), Image.open(neg_img), style_label, genre_label
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int, int]: # pos_image, neg_image, style, genre
+        pos_img, neg_img, style, genre = self.load_image_tuple(idx)
+        return self.transform(pos_img), self.transform(neg_img), style, genre
+
+# not tested
+class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='placeholder', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+        super().__init__(img_format, img_type, transform, mode, size, seed)
+
+        self.sketch_format, self.sketch_type = sketch_format, sketch_type
+
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}/{self.mode}")
+
+        self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
+
+    def _load_sketch_paths(self) -> None:
+        for entry in self.image_data:
+            entry['sketchname'] = self.sketch_path / f"{entry['filename'].stem}.{self.sketch_format}"
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
+        pos_tensor, neg_tensor, style, genre = super().__getitem__(idx)
+        sketch = Image.open(self.image_data[idx]['sketchname'])
+        return self.transform(sketch), pos_tensor, neg_tensor, style, genre
+
 # returns train and test dataset
-def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
+def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
 
     if dataset == "Sketchy":
         train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
@@ -189,5 +375,27 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'SketchyV2':
         train_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
         test_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
+    elif dataset == 'VectorizedSketchyV1':
+        train_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'train', split_ratio, size, seed, include_erased=True)
+        test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, include_erased=True)
+    
+    elif dataset == 'KaggleDatasetImgOnlyV1':
+        train_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetImgOnlyV1(img_format, img_type, transform, 'train', size, seed)
+    elif dataset == 'KaggleDatasetImgOnlyV2':
+        train_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
+    elif dataset == 'KaggleDatasetV2':
+        train_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
 
     return train_dataset, test_dataset
+
+
+if __name__ == '__main__':
+    #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
+    print(dataset.__getitem__(1))
+    #print(len(dataset.categorized_images.index))
+    dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
+    print( list(dataset2.categorized_images.index).index('miniature'))

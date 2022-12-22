@@ -6,6 +6,8 @@ import numpy as np
 
 import torch
 from PIL import Image
+from PIL import ImageOps
+import torchvision.transforms as transforms
 
 import json
 from pathlib import Path
@@ -35,12 +37,18 @@ def plot(plt, file: Path=None) -> None:
 
 
 # dataset.__getitem__() or dataset.load_image_sketch_tuple() -- expects torch.Tensor or PIL.Image
-def show_triplets(triplets, filename:Path=None) -> None:
-    fig = plt.figure(figsize=(9, 3 * len(triplets)))
+def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
+    fig = plt.figure(figsize=(9, 2.7 * len(triplets)))
 
     rows, cols = len(triplets), 3
 
-    titles = ["Sketch", "Matching image", "Non-matching image"]
+    inverted = [0, 0, 0]
+
+    if mode == 'sketch': titles = ["Sketch", "Matching image", "Non-matching image"]
+    elif mode == 'image': 
+        titles = ['Image', 'Artificial Sketch', 'Original sketch']
+        inverted = [0, 1, 0]
+    else: titles = ['','','']
 
     for i, tuple in enumerate(triplets):
         triplet = list(tuple)
@@ -50,11 +58,12 @@ def show_triplets(triplets, filename:Path=None) -> None:
             plt.axis(False)
             if not i: plt.title(titles[j])
 
-            if type(triplet[j]) == torch.Tensor: triplet[j] = triplet[j].permute(1, 2, 0)
+            if inverted[j]: triplet[j] = transforms.RandomInvert(p=1)(triplet[j])
+            if type(triplet[j]) == torch.Tensor: triplet[j] = triplet[j].permute(1, 2, 0)# transforms.ToPILImage()(triplet[j]) # triplet[j].permute(1, 2, 0)
 
             plt.imshow(triplet[j])
 
-            if not j: # adds a frame
+            if 'sketch' in titles[j].lower(): # adds a frame
                 add_frame(plt)
 
     plot(plt, filename)
@@ -177,8 +186,9 @@ def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=Non
     show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')
     show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
 
-inference_dict = load_file(Path('results/ModifiedResNet_with_classification_SketchyDatasetV2_2022-11-23_21-01/inference.json'))
-show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=Path('results/ModifiedResNet_with_classification_SketchyDatasetV2_2022-11-23_21-01') / 'retrieval_samples_original')
+
+#inference_dict = load_file(Path('results/ModifiedResNet_with_classification_SketchyDatasetV2_2022-11-23_21-01/inference.json'))
+#show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=Path('results/ModifiedResNet_with_classification_SketchyDatasetV2_2022-11-23_21-01') / 'retrieval_samples_original')
 
 """
 def plot_transformed_images(image_paths, transform, n=3, seed=42):

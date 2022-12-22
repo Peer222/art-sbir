@@ -9,6 +9,7 @@ from typing import List, Tuple, Dict
 
 import torch
 from torch import nn
+import torchvision.transforms as transforms
 
 from torchinfo import summary
 
@@ -52,10 +53,25 @@ triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
 
 
+
+def get_sketch_gen_transform(type:str='train'):
+    transform_list = []
+    if type == 'train':
+        transform_list.extend([transforms.Resize(256)])
+    elif type == 'test':
+        transform_list.extend([transforms.Resize(256)])
+    # transform_list.extend(
+    #     [transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+    transform_list.extend(
+        [transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
+    return transforms.Compose(transform_list)
+
+
 # model saver and loader
 
 # loads resnet50m state dicts or arbitrary models
-def load_model(name:str, dataset:str='Sketchy') -> nn.Module:
+def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
     path = Path("models/") / name
     loaded = torch.load(path)
     model = None
@@ -69,6 +85,9 @@ def load_model(name:str, dataset:str='Sketchy') -> nn.Module:
             print("Model with classification layer loaded")
             model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
+        elif dataset == 'VectorizedSketchyV1':
+            print('Photo2Sketch model loaded')
+            model = models.Photo2Sketch(128, 512, 20, max_seq_len)
     else:
         print("Model completely loaded from file")
         model = loaded

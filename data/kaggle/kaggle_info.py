@@ -13,7 +13,7 @@ kaggle_dataset = kaggle_dataset[not kaggle_dataset['genre'].isna()]
 kaggle_dataset = kaggle_dataset[not kaggle_dataset['style'].isna()]
 """
 
-#"""
+"""
 # filter dataset by small genres and small styles
 
 kaggle_dataset = pd.read_csv('kaggle_train_info (nfs_data).csv')
@@ -42,13 +42,15 @@ print(styles)
 
 train_kaggle, test_kaggle = train_test_split(kaggle_dataset, test_size=6000, shuffle=True, random_state=2)
 
+test_kaggle = test_kaggle.reset_index()
+
 train_kaggle.to_csv('kaggle_art_dataset_train.csv')
 test_kaggle.to_csv('kaggle_art_dataset_test.csv')
 
 
 #genres.to_csv('genres.csv')
 #styles.to_csv('styles.csv')
-#"""
+"""
 
 #
 #"""
