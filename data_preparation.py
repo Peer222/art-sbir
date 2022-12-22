@@ -261,6 +261,24 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         state_dict['maximum_length'] = self.maximum_length
         return state_dict
 
+class SketchyDatasetPix2Pix(SketchyDatasetV1):
+    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), mode="train", split_ratio=0.1, size=1, seed=42) -> None:
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]: 
+        image, sketch = Image.open(self.photo_paths[idx]), Image.open(self.sketch_paths[idx])
+        if self.mode == 'train' and random.random() > 0.5:
+            image = image.transpose(method=Image.FLIP_LEFT_RIGHT)
+            sketch = sketch.transpose(method=Image.FLIP_LEFT_RIGHT)
+        return {'image': self.transform(image), 'sketch': self.transform(sketch)}
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['augmentation'] = 'train_random_hflip'
+        return state_dict
+
 
 # kaggle data prep
 
