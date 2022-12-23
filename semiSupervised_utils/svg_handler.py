@@ -64,9 +64,9 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
     if max_length and len(result['image']) > max_length: result['image'] = result['image'][:max_length]
     # result['image'].append([0, 0, 0, 0, 1]) added after model and before loss calculation
 
-    if result_path and 'V2' in str(result_path):
-        for i in range(len(result['image']) - 1):
-            result['image'][i][2:] = result['image'][i+1][2:]
+    # each pen state sets mode of next stroke instead of current stroke
+    for i in range(len(result['image']) - 1):
+        result['image'][i][2:] = result['image'][i + 1][2:]
 
     if result_path:    
         #pickle.dump(result, open(result_path / filename.stem, 'wb'))
@@ -98,7 +98,7 @@ def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
     vector_sketch[:, 1] = vector_sketch[:, 1] / vectorized_sketch['shape'][1] * img_height
     vectorized_sketch['original_shape'] = vectorized_sketch['shape']
     vectorized_sketch['shape'] = (img_width, img_height)
-    vectorized_sketch['image'] = vector_sketch
+    vectorized_sketch['image'] = vector_sketch#[1:] # sketch starts at origin
     return vectorized_sketch
     
 
