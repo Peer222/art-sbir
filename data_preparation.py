@@ -244,7 +244,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
     def __getitem__(self, idx: int):
         # fill all sketches so they have same number of strokes
         sketch = self.vectorized_sketches[idx]['image']
-        sketch_vector = np.zeros((self.max_seq_len, 5))
+        sketch_vector = np.zeros((self.maximum_length, 5))
         sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
         # !!! added 
         sketch_vector[len(sketch):, 4] = 1
@@ -288,6 +288,10 @@ class SketchyDatasetPix2Pix(SketchyDatasetV1):
         state_dict = super().state_dict
         state_dict['augmentation'] = 'train_random_hflip'
         return state_dict
+
+class QuickDrawDatasetV1(Dataset):
+    def __init__(self) -> None:
+        super().__init__()
 
 
 # kaggle data prep

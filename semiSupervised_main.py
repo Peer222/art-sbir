@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
     # initial model is used
     initial_model = 'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_10-13.pth'
-    model = utils.load_model(initial_model, 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    model = utils.load_model(initial_model, 'VectorizedSketchyV1', max_seq_len=dataset_test.maximum_length) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
