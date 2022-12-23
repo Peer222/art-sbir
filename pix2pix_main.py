@@ -39,10 +39,13 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
         for i, data in enumerate(dataloader_train):  # inner loop within one epoch
 
             model.set_input(data)         # unpack data from dataset and apply preprocessing
+
             model.optimize_parameters()   # calculate loss functions, get gradients, update network weights
 
             losses = model.get_current_losses()
             train_loss = utils.process_losses(train_loss, losses, opt.batch_size, 'add', opt.lambda_L1)
+
+            if i > 2: break
         
         model.eval() # can be turned of for experiments (dropout)
         with torch.inference_mode():
@@ -59,6 +62,8 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
 
                     visuals = utils.convert_pix2pix_to_255(visuals)
                     samples.append([visuals['real_A'].cpu(), visuals['fake_B'].cpu(), visuals['real_B'].cpu()])
+
+                if i > 2: break
 
         train_losses = utils.process_losses(train_losses, train_loss, len(dataloader_test), 'append', opt.lambda_L1)
         test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append', opt.lambda_L1)
@@ -100,7 +105,7 @@ if __name__ == '__main__':
         'n_epochs': EPOCHS,
 
         'input_nc': 3, # rgb
-        'output_nc': 3, # grayscale = 1 but not compatible with other functions
+        'output_nc': 1, # grayscale = 1 but not compatible with other functions # change inside dataset too
         'ngf': 64,
         'ndf': 64,
         'n_layers_D': 3, # default (not used if netD == basic)

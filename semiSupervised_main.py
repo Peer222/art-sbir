@@ -127,7 +127,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
-        if (i_epoch+1) % 10 == 0 or i_epoch == 0:
+        if (i_epoch+1) % 30 == 0:
             param_dict['epoch'] = i_epoch
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 

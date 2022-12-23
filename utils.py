@@ -66,10 +66,14 @@ def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:f
             loss_tracker[key].append(loss[key] / size)
     return loss_tracker
 
+# 4 dimensional input expected [batch, channels, H, W]
 def convert_pix2pix_to_255(visuals:Dict) -> Dict:
+    to_rgb = transforms.Lambda(lambda x: x.repeat(1, 3, 1, 1) )
     for key in visuals.keys():
         if type(visuals[key]) == str: continue
+        print(visuals[key].shape)
         visuals[key] = ((visuals[key] + 1) / 2 * 255).type(torch.uint8)
+        if visuals[key].shape[-3] == 1: visuals[key] = to_rgb(visuals[key])
     return visuals
 
 

@@ -266,7 +266,9 @@ class SketchyDatasetPix2Pix(SketchyDatasetV1):
     def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=None, mode="train", split_ratio=0.1, size=1, seed=42) -> None:
         super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
 
-        self.transform = self.transform_pix2pix
+        self.grayscale_sketch = True
+        self.transform_img = self.transform_pix2pix(to_grayscale=False)
+        self.transform_sketch = self.transform_pix2pix(to_grayscale=self.grayscale_sketch)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]: 
         image, sketch = Image.open(self.photo_paths[idx]), Image.open(self.sketch_paths[idx])
@@ -274,19 +276,18 @@ class SketchyDatasetPix2Pix(SketchyDatasetV1):
         if self.mode == 'train' and random.random() > 0.5:
             image = image.transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
             sketch = sketch.transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
-        return {'A': self.transform(image), 'B': self.transform(sketch), 'img_paths': str(self.photo_paths[idx])}
+        return {'A': self.transform_img(image), 'B': self.transform_sketch(sketch), 'img_paths': str(self.photo_paths[idx])}
 
-    @property
-    def transform_pix2pix(self):
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # normalize to a range of [-1, 1] (tanh is used as final activation)
-        ])
+    def transform_pix2pix(self, to_grayscale:bool):
+        transformations = [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))] # normalize to a range of [-1, 1] (tanh is used as final activation)
+        transformations += [transforms.Grayscale(1)] if to_grayscale else []
+        return transforms.Compose(transformations)
 
     @property
     def state_dict(self) -> Dict:
         state_dict = super().state_dict
         state_dict['augmentation'] = 'train_random_hflip'
+        state_dict['sketch_type'] = 'grayscale' if self.grayscale_sketch else 'rgb'
         return state_dict
 
 class QuickDrawDatasetV1(Dataset):
