@@ -133,6 +133,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
 
             # if not result_path or (i_epoch+1) % 25 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
             result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={}) # saving more often because of larger dataset
+            model.to(device)
 
             create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
             create_loss_curves(train_losses, test_losses, i_epoch, result_path)
