@@ -288,6 +288,7 @@ class SketchyDatasetPix2Pix(SketchyDatasetV1):
         state_dict = super().state_dict
         state_dict['augmentation'] = 'train_random_hflip'
         state_dict['sketch_type'] = 'grayscale' if self.grayscale_sketch else 'rgb'
+        state_dict['transform'] = {'sketch': str(self.transform_sketch), 'image': str(self.transform_img)}
         return state_dict
 
 class QuickDrawDatasetV1(Dataset):
