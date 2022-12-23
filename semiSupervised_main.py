@@ -4,6 +4,7 @@ from timeit import default_timer as timer
 import os
 from pathlib import Path
 from PIL import Image
+import json
 
 import torch
 from torch import nn
@@ -62,7 +63,8 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             curr_learning_rate = ((hp.learning_rate - hp.min_learning_rate) * (hp.decay_rate) ** step + hp.min_learning_rate)
             curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
 
-            sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+            #sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+            sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss_withoutMask(photo2sketch_output, x_target)
             loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
 
             semiSupervised_utils.set_learningRate(optimizer, curr_learning_rate)
@@ -110,7 +112,8 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
 
                 curr_kl_weight = (hp.kl_weight - (hp.kl_weight - hp.kl_weight_start) * (hp.kl_decay_rate) ** step)
 
-                sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+                #sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss(photo2sketch_output, x_target)  #TODO: Photo to Sketch Loss
+                sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss_withoutMask(photo2sketch_output, x_target)
                 loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
 
                 test_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
@@ -124,10 +127,13 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
-        if (i_epoch+1) % 30 == 0:
+        if (i_epoch+1) % 10 == 0 or i_epoch == 0:
             param_dict['epoch'] = i_epoch
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
-            result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
+
+            # if not result_path or (i_epoch+1) % 25 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
+            result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={}) # saving more often because of larger dataset
+
             create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
             create_loss_curves(train_losses, test_losses, i_epoch, result_path)
 
@@ -141,7 +147,7 @@ def create_loss_curves(train_losses, test_losses, epoch, result_path):
     visualization.show_loss_curves(train_losses['reconstruction_loss'], test_losses['reconstruction_loss'], loss_path / 'reconstruction_loss_curves.png')
     visualization.show_loss_curves(train_losses['total_loss'], test_losses['total_loss'], loss_path / 'total_loss_curves.png')
 
-def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch, max=10):
+def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch, max=15):
     samples = []
 
     model.eval()
@@ -161,18 +167,30 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
             for i in range(len(photo2sketch_output)):
                 if i_batch * hp.batchsize + i > max: break
                 sketch = photo2sketch_output[i]
-
-                sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i]
-                image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i]
-
-                image = Image.open(image_path)
-                rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
-                original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png'))
-                samples.append((image, rasterized_sketch.cpu(), original_sketch))
+                #image = rgb_image[i]
 
                 svg_path = result_path / f'svgs_{epoch}'
                 if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
-                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / sketch_path.name)
+                semiSupervised_utils.build_svg(sketch.cpu(), (256, 256), svg_path / f"sketch_{i}.svg")
+
+                tuple_path = result_path / f'tuples_{epoch}'
+                if not tuple_path.is_dir(): tuple_path.mkdir(parents=True, exist_ok=True)
+                with open(tuple_path / (f"sketch_{i}" + '.json'), 'w') as f:
+                    json.dump(sketch.cpu().tolist(), f)
+                with open(tuple_path / f"original_sketch_{i}.json", 'w') as f:
+                    json.dump(sketch_vector[i].cpu().tolist(), f)
+
+                # masking from original sketch
+                #sketch[length_sketch[i]:, 4 ] = 1.0
+                #sketch[length_sketch[i]:, 2:4] = 0.0
+
+                sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i] #Quickdraw
+                image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i] #QUickdraw
+
+                image = Image.open(image_path) #quickdraw
+                rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
+                original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png')) #quickdraw
+                samples.append((image, rasterized_sketch.cpu(), original_sketch)) #original_sketch quickdraw -> .cpu()
 
     visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
 
@@ -210,18 +228,24 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
+    # if size is changed sketch vector folder has to be deleted 
     dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.01, img_format='png', img_type='contour_drawings', transform=utils.get_sketch_gen_transform())
 
-    dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
+    dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
 
-    # initial model loaded
-    model = utils.load_model('Photo2Sketch_VectorizedSketchyDatasetV1_2022-12-06_15-25.pth', 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    # initial model is used
+    initial_model = 'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_10-13.pth'
+    model = utils.load_model(initial_model, 'VectorizedSketchyV1', max_seq_len=dataset_test.max_seq_len) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
 
     param_dict = vars(hp)
+    param_dict['loaded_model'] = initial_model
+    param_dict['start_token'] = '[0, 0, 0, 1, 0]'
+
+    #create_sample_sketches(model, dataset_test, dataloader_test, hp, Path('./results/Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32'), 0, 10)
 
     training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
@@ -229,4 +253,3 @@ if __name__ == "__main__":
 
     #result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict)
 
-    #create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch=hp.max_epoch)
