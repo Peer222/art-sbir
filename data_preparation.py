@@ -262,16 +262,24 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         return state_dict
 
 class SketchyDatasetPix2Pix(SketchyDatasetV1):
-    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), mode="train", split_ratio=0.1, size=1, seed=42) -> None:
+    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=None, mode="train", split_ratio=0.1, size=1, seed=42) -> None:
         super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
 
+        self.transform = self.transform_pix2pix
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]: 
         image, sketch = Image.open(self.photo_paths[idx]), Image.open(self.sketch_paths[idx])
+        sketch = sketch.convert('L')
         if self.mode == 'train' and random.random() > 0.5:
             image = image.transpose(method=Image.FLIP_LEFT_RIGHT)
             sketch = sketch.transpose(method=Image.FLIP_LEFT_RIGHT)
-        return {'image': self.transform(image), 'sketch': self.transform(sketch)}
+        return {'A': self.transform(image), 'B': self.transform(sketch), 'img_paths': str(self.photo_paths[idx])}
+
+    @property
+    def transform_pix2pix(self):
+        return transforms.Compose([
+            transforms.ToTensor()
+        ])
 
     @property
     def state_dict(self) -> Dict:
@@ -415,8 +423,10 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 if __name__ == '__main__':
     #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
-    dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
-    print(dataset.__getitem__(1))
+    #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
+    #print(dataset.__getitem__(1))
     #print(len(dataset.categorized_images.index))
-    dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
-    print( list(dataset2.categorized_images.index).index('miniature'))
+    #dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
+    #print( list(dataset2.categorized_images.index).index('miniature'))
+    dataset = SketchyDatasetPix2Pix(size=0.01)
+    print(len(dataset))

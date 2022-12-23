@@ -11,35 +11,91 @@ from torch.utils.data import DataLoader
 #import pix2pix_utils
 import pix2pix_model
 import data_preparation
+import utils
+import visualization
 
 from datetime import datetime
 
-def train_pix2pix(epochs:int, dataloader_train, dataloader_test):
+device = [0] if torch.cuda.is_available() else [] # gpu_id
+
+def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
 
     start_time = timer()
 
-    train_losses = []
-    test_losses = []
+    # ['G_GAN', 'G_L1', 'D_real', 'D_fake']
+    train_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': []}
+    test_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': []}
 
-    for i_epoch in tqdm(range(epochs), desc='Epoch'):
-        
-        train_loss = 0
-        test_loss = 0
+    result_path = None
+    param_dict = vars(opt)
 
+    for epoch in tqdm(range(1, opt.n_epochs + 1)):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
+        epoch_start_time = timer()
+
+        train_loss = {'G_GAN': 0, 'G_L1': 0, 'D_real': 0, 'D_fake': 0}
+        test_loss = {'G_GAN': 0, 'G_L1': 0, 'D_real': 0, 'D_fake': 0}
+        samples = []
+
+        model.train()
+        for i, data in enumerate(dataloader_train):  # inner loop within one epoch
+
+            model.set_input(data)         # unpack data from dataset and apply preprocessing
+            model.optimize_parameters()   # calculate loss functions, get gradients, update network weights
+
+            losses = model.get_current_losses()
+            train_loss = utils.process_losses(train_loss, losses, opt.batch_size, 'add')
+
+        model.eval() # can be turned of for experiments (dropout)
+        with torch.inference_mode():
+            for i, data in enumerate(dataloader_test):
+
+                model.set_input(data)
+                model.test()
+
+                losses = model.get_current_losses()
+                test_loss = utils.process_losses(test_loss, losses, opt.batch_size, 'add')
+
+                if i < 15 and (epoch % opt.save_epoch_freq == 0 or epoch == 1):
+                    visuals = model.get_current_visuals() # dict with ['real_A', 'fake_B', 'real_B']
+                    samples.append(visuals['real_A'], visuals['fake_B', visuals['real_B']])
+
+        train_losses = utils.process_losses(train_losses, train_loss, len(dataloader_test), 'append')
+        test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append')
+
+        print(f'End of epoch {epoch} / {opt.n_epochs} \t Time Taken: {timer() - epoch_start_time} sec', flush=True)
+        print(f'Train losses -> G_GAN: {train_losses["G_GAN"]}, G_L1: {train_losses["G_L1"]}, D_real: {train_losses["D_real"]}, D_fake: {train_losses["D_fake"]} ', flush=True)
+
+        if epoch % opt.save_epoch_freq == 0 or epoch == 1:
+            print(f'saving the model at the end of epoch {epoch}')
+            param_dict['epoch'] = epoch
+            training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
+            result_path = utils.save_model(model, data_dict, training_dict, param_dict, {})
+            model.netG.to(model.device), model.netD.to(model.device)
+
+            visualization.build_all_loss_curves(train_losses, test_losses, result_path, epoch)
+            visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
+
+
+    return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
 
 if __name__ == '__main__':
 
+    EPOCHS = 30
+
     BATCH_SIZE = 1 # placeholder
-    LEARNING_RATE = 2e-4 # placeholder
+    BATCH_SIZE_TEST = 1
+    LEARNING_RATE = 2e-4 # default for pix2pix
     BETAS = (0.5, 0.999) # default for pix2pix (beta2 fixed)
 
-    DATASET_SIZE = 0.1
+    DATASET_SIZE = 0.005
 
     # from base_options
     param_dict = {
         'checkpoints_dir': './results',
         'name': 'test', # name of the experiment (can be freely choosed)
+        'save_epoch_freq': 10,
+        'n_epochs': EPOCHS,
 
         'input_nc': 3, # rgb
         'output_nc': 1, # grayscale
@@ -55,17 +111,17 @@ if __name__ == '__main__':
         'init_type': 'normal', # default for pix2pix + cyclegan
         'init_gain': 0.02, # default
 
-        'preprocess': 'resize_and_crop', # default
-        'no_dropout': False, # placeholder
+        #'preprocess': 'resize_and_crop', # default
+        'no_dropout': False, # default for pix2pix (if instanceNorm True (cycle gan))
 
-        'direction': 'AtoB',
+        #'direction': 'AtoB', # removed
         #'dataset_mode': 'aligned', # default for pix2pix -> own dataset
 
         'lambda_L1': 100.0, # weighting for L1_Loss <-> default for pix2pix ('train)
         'lr': LEARNING_RATE,
         'beta1': BETAS[0],
         'batch_size': BATCH_SIZE,
-        'gpu_ids': [] # may be change pix2pix_model.py so it is not needed
+        'gpu_ids': device # maybe change pix2pix_model.py so it is not needed or more convenient
 
     }
     options = argparse.Namespace(**param_dict)
@@ -78,7 +134,9 @@ if __name__ == '__main__':
     train_dataset, test_dataset = data_preparation.get_datasets('SketchyPix2Pix', size=DATASET_SIZE)
 
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=True)
-    test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=False)
+    test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE_TEST, num_workers=min(4, os.cpu_count()), shuffle=True)
 
     # optimizer defined in Pix2PixModel
+
+    training_dict = train_pix2pix(model, train_dataloader, test_dataloader, options, train_dataset.state_dict)
 

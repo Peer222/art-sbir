@@ -46,8 +46,8 @@ def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
 
     if mode == 'sketch': titles = ["Sketch", "Matching image", "Non-matching image"]
     elif mode == 'image': 
-        titles = ['Image', 'Artificial Sketch', 'Original sketch']
-        inverted = [0, 1, 0]
+        titles = ['Image', 'Artificial sketch', 'Original sketch']
+        #inverted = [0, 1, 0] activate for semi supervised
     else: titles = ['','','']
 
     for i, tuple in enumerate(triplets):
@@ -88,6 +88,19 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     #plt.grid(visible=True, color=Color.LIGHT_GREY)
 
     plot(plt, filename)
+
+# train and test losses with same keys | key is used as plot title
+def build_all_loss_curves(train_losses:Dict, test_losses:Dict, result_path:Path, epoch:int=None, titles:List[str]=None) -> None:
+    loss_path = result_path / f'loss_curves_{epoch}' if epoch else result_path / 'loss_curves'
+    if not loss_path.is_dir(): loss_path.mkdir(parents=True, exist_ok=True)
+
+    i = 0
+    for key in train_losses.keys():
+        loss = 'loss ' if not 'loss' in key else ''
+        title = titles[i] if len(titles) == len(train_losses.keys()) else f"{key.replace('_', ' ').capitalize()} {loss}curves"
+        show_loss_curves(train_losses[key], test_losses[key], loss_path, title)
+        i += 1
+
 
 
 def show_topk_accuracy(topk_acc:List[float], filename:Path=None) -> None:

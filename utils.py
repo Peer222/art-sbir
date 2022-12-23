@@ -14,6 +14,7 @@ import torchvision.transforms as transforms
 from torchinfo import summary
 
 import models
+import pix2pix_model
 
 def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
@@ -53,7 +54,16 @@ triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
 
 
+def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str):
+    for key in loss_tracker.keys():
+        if method == 'add':
+            loss_tracker[key] += (loss[key] / size)
+        elif method == 'append':
+            loss_tracker[key].append(loss[key] / size)
+    return loss_tracker
 
+
+# semi supervised
 def get_sketch_gen_transform(type:str='train'):
     transform_list = []
     if type == 'train':
@@ -96,6 +106,7 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
     return model
 
 # saves model and related parameters and results -> returns result folder path
+# after calling save_model model is on cpu
 def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dict:Dict={}, inference_dict:Dict={}) -> Path:
     date_time = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
@@ -103,9 +114,18 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
     # just saves model if it was trained before
     if training_dict:
         suffix = "pth"
-        model_path = Path("models") / f"{model_name}.{suffix}"
 
-        torch.save(model.state_dict(), model_path)
+        if isinstance(model, pix2pix_model.Pix2PixModel):
+            model_path = Path("models") / model_name
+            model_path.mkdir(parents=True, exist_ok=True)
+            for name in model.model_names:
+                if isinstance(name, str):
+                    net = getattr(model, 'net' + name)
+                    torch.save(net.module.cpu().state_dict(), model_path / f'net_{name}.{suffix}')
+        else:
+            model_path = Path("models") / f"{model_name}.{suffix}"
+            torch.save(model.cpu().state_dict(), model_path)
+
         print(f"Model saved as {model_name}.{suffix}")
     else:
         print("No model saved")
@@ -129,7 +149,7 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
     with open(result_path / "inference.json", "w") as f:
         json.dump(inference_dict, f, indent=4)
 
-    print(f"Data saved in {str(result_path)}")
+    print(f"Data saved in {str(result_path)}", flush=True)
 
     return result_path
 
