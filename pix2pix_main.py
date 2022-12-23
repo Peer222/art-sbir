@@ -64,7 +64,8 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
         test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append', opt.lambda_L1)
 
         print(f'End of epoch {epoch} / {opt.n_epochs} \t Time Taken: {timer() - epoch_start_time} sec', flush=True)
-        print(f'Train losses -> G_GAN: {train_losses["G_GAN"]}, G_L1: {train_losses["G_L1"]}, D_real: {train_losses["D_real"]}, D_fake: {train_losses["D_fake"]} ', flush=True)
+        print(f'Train losses -> G_GAN: {train_loss["G_GAN"]}, G_L1: {train_loss["G_L1"]}, D_real: {train_loss["D_real"]}, D_fake: {train_loss["D_fake"]} ', flush=True)
+        print(f'Test losses -> G_GAN: {test_loss["G_GAN"]}, G_L1: {test_loss["G_L1"]}, D_real: {test_loss["D_real"]}, D_fake: {test_loss["D_fake"]} ', flush=True)
 
         if epoch % opt.save_epoch_freq == 0 or epoch == 1:
             print(f'saving the model at the end of epoch {epoch}')

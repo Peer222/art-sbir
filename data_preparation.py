@@ -204,7 +204,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         self.include_erased = include_erased
 
         # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
-        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}'
+        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}_{int(self.size*100)}_V2'
         self.vectorized_sketches = []
 
         if not self.vector_path.is_dir():
@@ -259,6 +259,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         state_dict['include_erased'] = self.include_erased
         state_dict['reduce_factor'] = self.reduce_factor
         state_dict['maximum_length'] = self.maximum_length
+        state_dict['V2'] = 'V2' in str(self.vector_path)
         return state_dict
 
 class SketchyDatasetPix2Pix(SketchyDatasetV1):
@@ -429,11 +430,14 @@ if __name__ == '__main__':
     #print(len(dataset.categorized_images.index))
     #dataset2 = KaggleDatasetImgOnlyV2(size=1, mode='train')
     #print( list(dataset2.categorized_images.index).index('miniature'))
-    dataset = SketchyDatasetPix2Pix(size=0.01)
-    print(len(dataset))
-    item = dataset.__getitem__(0)
+    #dataset = SketchyDatasetPix2Pix(size=0.01)
+    #print(len(dataset))
+    #item = dataset.__getitem__(0)
     #print(item['A'].shape)
-    visualization.show_triplets([[item['A'], item['A'], item['B']]], './test.png', mode='image')
-    item = utils.convert_pix2pix_to_255(item)
-    visualization.show_triplets([[item['A'], item['A'], item['B']]], './test2.png', mode='image')
-    
+    #visualization.show_triplets([[item['A'], item['A'], item['B']]], './test.png', mode='image')
+    #item = utils.convert_pix2pix_to_255(item)
+    #visualization.show_triplets([[item['A'], item['A'], item['B']]], './test2.png', mode='image')
+
+
+    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+

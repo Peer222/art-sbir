@@ -124,10 +124,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
-        if (i_epoch+1) % 5 == 0:
+        if (i_epoch+1) % 30 == 0:
             param_dict['epoch'] = i_epoch
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
-            if not result_path or (i_epoch+1) % 20 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
+            result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
             create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
             create_loss_curves(train_losses, test_losses, i_epoch, result_path)
 
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     hp = parser.parse_args()
 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=1, transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.01, img_format='png', img_type='contour_drawings', transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
