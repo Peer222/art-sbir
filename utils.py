@@ -56,7 +56,7 @@ triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classificati
 
 def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:float=100):
     for key in loss_tracker.keys():
-         # pix2pix combined losses
+        # pix2pix combined losses
         #if key == 'Discriminator': loss[key] = (loss['D_real'] + loss['D_fake']) / 2
         #if key == 'Generator': loss[key] = loss['G_GAN'] + loss['G_L1'] * lambda_
 
@@ -71,7 +71,6 @@ def convert_pix2pix_to_255(visuals:Dict) -> Dict:
     to_rgb = transforms.Lambda(lambda x: x.repeat(1, 3, 1, 1) )
     for key in visuals.keys():
         if type(visuals[key]) == str: continue
-        print(visuals[key].shape)
         visuals[key] = ((visuals[key] + 1) / 2 * 255).type(torch.uint8)
         if visuals[key].shape[-3] == 1: visuals[key] = to_rgb(visuals[key])
     return visuals

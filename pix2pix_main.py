@@ -45,7 +45,6 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
             losses = model.get_current_losses()
             train_loss = utils.process_losses(train_loss, losses, opt.batch_size, 'add', opt.lambda_L1)
 
-            if i > 2: break
         
         model.eval() # can be turned of for experiments (dropout)
         with torch.inference_mode():
@@ -63,7 +62,6 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
                     visuals = utils.convert_pix2pix_to_255(visuals)
                     samples.append([visuals['real_A'].cpu(), visuals['fake_B'].cpu(), visuals['real_B'].cpu()])
 
-                if i > 2: break
 
         train_losses = utils.process_losses(train_losses, train_loss, len(dataloader_test), 'append', opt.lambda_L1)
         test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append', opt.lambda_L1)

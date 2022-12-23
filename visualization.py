@@ -34,6 +34,7 @@ def plot(plt, file: Path=None) -> None:
         plt.show()
     else:
         plt.savefig(fname=file, dpi=300)
+        plt.close()
 
 
 # dataset.__getitem__() or dataset.load_image_sketch_tuple() -- expects torch.Tensor or PIL.Image in rgb
@@ -85,7 +86,7 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     ax.grid(True, color=Color.LIGHT_GREY)
     ax.tick_params(direction="in", length=0)
     ax.set_axisbelow(True)
-    #ax.set_xlim(xmin=0)
+    ax.set_xlim(xmin=0)
     seaborn.despine(left=True, bottom=True, right=True, top=True)
     #plt.grid(visible=True, color=Color.LIGHT_GREY)
 
@@ -202,8 +203,6 @@ def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=Non
     show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
 
 
-#inference_dict = load_file(Path('results/ModifiedResNet_with_classification_SketchyDatasetV2_2022-11-23_21-01/inference.json'))
-#show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=Path('results/ModifiedResNet_with_classification_SketchyDatasetV2_2022-11-23_21-01') / 'retrieval_samples_original')
 
 """
 def plot_transformed_images(image_paths, transform, n=3, seed=42):
@@ -241,3 +240,6 @@ plot_transformed_images(image_path_list,
                         transform=data_transform, 
                         n=3)
 """
+
+if __name__ == '__main__':
+    show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
