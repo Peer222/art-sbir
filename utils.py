@@ -54,13 +54,23 @@ triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
 
 
-def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str):
+def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:float=100):
     for key in loss_tracker.keys():
+         # pix2pix combined losses
+        #if key == 'Discriminator': loss[key] = (loss['D_real'] + loss['D_fake']) / 2
+        #if key == 'Generator': loss[key] = loss['G_GAN'] + loss['G_L1'] * lambda_
+
         if method == 'add':
             loss_tracker[key] += (loss[key] / size)
         elif method == 'append':
             loss_tracker[key].append(loss[key] / size)
     return loss_tracker
+
+def convert_pix2pix_to_255(visuals:Dict) -> Dict:
+    for key in visuals.keys():
+        if type(visuals[key]) == str: continue
+        visuals[key] = ((visuals[key] + 1) / 2 * 255).type(torch.uint8)
+    return visuals
 
 
 # semi supervised
@@ -121,7 +131,7 @@ def save_model(model:nn.Module, data_dict:Dict, training_dict:Dict={}, param_dic
             for name in model.model_names:
                 if isinstance(name, str):
                     net = getattr(model, 'net' + name)
-                    torch.save(net.module.cpu().state_dict(), model_path / f'net_{name}.{suffix}')
+                    torch.save(net.cpu().state_dict(), model_path / f'net_{name}.{suffix}')
         else:
             model_path = Path("models") / f"{model_name}.{suffix}"
             torch.save(model.cpu().state_dict(), model_path)

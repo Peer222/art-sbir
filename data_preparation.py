@@ -269,16 +269,17 @@ class SketchyDatasetPix2Pix(SketchyDatasetV1):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]: 
         image, sketch = Image.open(self.photo_paths[idx]), Image.open(self.sketch_paths[idx])
-        sketch = sketch.convert('L')
+        #sketch = sketch.convert('L')
         if self.mode == 'train' and random.random() > 0.5:
-            image = image.transpose(method=Image.FLIP_LEFT_RIGHT)
-            sketch = sketch.transpose(method=Image.FLIP_LEFT_RIGHT)
+            image = image.transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
+            sketch = sketch.transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
         return {'A': self.transform(image), 'B': self.transform(sketch), 'img_paths': str(self.photo_paths[idx])}
 
     @property
     def transform_pix2pix(self):
         return transforms.Compose([
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # normalize to a range of [-1, 1] (tanh is used as final activation)
         ])
 
     @property
@@ -430,3 +431,9 @@ if __name__ == '__main__':
     #print( list(dataset2.categorized_images.index).index('miniature'))
     dataset = SketchyDatasetPix2Pix(size=0.01)
     print(len(dataset))
+    item = dataset.__getitem__(0)
+    #print(item['A'].shape)
+    visualization.show_triplets([[item['A'], item['A'], item['B']]], './test.png', mode='image')
+    item = utils.convert_pix2pix_to_255(item)
+    visualization.show_triplets([[item['A'], item['A'], item['B']]], './test2.png', mode='image')
+    

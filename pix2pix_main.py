@@ -14,7 +14,6 @@ import data_preparation
 import utils
 import visualization
 
-from datetime import datetime
 
 device = [0] if torch.cuda.is_available() else [] # gpu_id
 
@@ -23,8 +22,8 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
     start_time = timer()
 
     # ['G_GAN', 'G_L1', 'D_real', 'D_fake']
-    train_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': []}
-    test_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': []}
+    train_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': [], 'D_total': [], 'G_total' : []}
+    test_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': [], 'D_total': [], 'G_total' : []}
 
     result_path = None
     param_dict = vars(opt)
@@ -32,8 +31,8 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
     for epoch in tqdm(range(1, opt.n_epochs + 1)):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
         epoch_start_time = timer()
 
-        train_loss = {'G_GAN': 0, 'G_L1': 0, 'D_real': 0, 'D_fake': 0}
-        test_loss = {'G_GAN': 0, 'G_L1': 0, 'D_real': 0, 'D_fake': 0}
+        train_loss = {'G_GAN': 0, 'G_L1': 0, 'D_real': 0, 'D_fake': 0, 'D_total': 0, 'G_total' : 0}
+        test_loss = {'G_GAN': 0, 'G_L1': 0, 'D_real': 0, 'D_fake': 0, 'D_total': 0, 'G_total' : 0}
         samples = []
 
         model.train()
@@ -43,24 +42,26 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
             model.optimize_parameters()   # calculate loss functions, get gradients, update network weights
 
             losses = model.get_current_losses()
-            train_loss = utils.process_losses(train_loss, losses, opt.batch_size, 'add')
-
+            train_loss = utils.process_losses(train_loss, losses, opt.batch_size, 'add', opt.lambda_L1)
+        
         model.eval() # can be turned of for experiments (dropout)
         with torch.inference_mode():
             for i, data in enumerate(dataloader_test):
 
                 model.set_input(data)
-                model.test()
+                model.calculate_loss()
 
                 losses = model.get_current_losses()
-                test_loss = utils.process_losses(test_loss, losses, opt.batch_size, 'add')
+                test_loss = utils.process_losses(test_loss, losses, opt.batch_size, 'add', opt.lambda_L1)
 
                 if i < 15 and (epoch % opt.save_epoch_freq == 0 or epoch == 1):
-                    visuals = model.get_current_visuals() # dict with ['real_A', 'fake_B', 'real_B']
-                    samples.append(visuals['real_A'], visuals['fake_B', visuals['real_B']])
+                    visuals = model.get_current_visuals() # ordered dict with ['real_A', 'fake_B', 'real_B']
 
-        train_losses = utils.process_losses(train_losses, train_loss, len(dataloader_test), 'append')
-        test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append')
+                    visuals = utils.convert_pix2pix_to_255(visuals)
+                    samples.append([visuals['real_A'].cpu(), visuals['fake_B'].cpu(), visuals['real_B'].cpu()])
+
+        train_losses = utils.process_losses(train_losses, train_loss, len(dataloader_test), 'append', opt.lambda_L1)
+        test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append', opt.lambda_L1)
 
         print(f'End of epoch {epoch} / {opt.n_epochs} \t Time Taken: {timer() - epoch_start_time} sec', flush=True)
         print(f'Train losses -> G_GAN: {train_losses["G_GAN"]}, G_L1: {train_losses["G_L1"]}, D_real: {train_losses["D_real"]}, D_fake: {train_losses["D_fake"]} ', flush=True)
@@ -83,22 +84,22 @@ if __name__ == '__main__':
 
     EPOCHS = 30
 
-    BATCH_SIZE = 1 # placeholder
+    BATCH_SIZE = 1 # 1 - 10 used depending on experiment
     BATCH_SIZE_TEST = 1
     LEARNING_RATE = 2e-4 # default for pix2pix
     BETAS = (0.5, 0.999) # default for pix2pix (beta2 fixed)
 
-    DATASET_SIZE = 0.005
+    DATASET_SIZE = 1 #0.005
 
     # from base_options
     param_dict = {
         'checkpoints_dir': './results',
-        'name': 'test', # name of the experiment (can be freely choosed)
+        'name': 'placeholder', # name of the experiment (can be freely choosed)
         'save_epoch_freq': 10,
         'n_epochs': EPOCHS,
 
         'input_nc': 3, # rgb
-        'output_nc': 1, # grayscale
+        'output_nc': 3, # grayscale = 1 but not compatible with other functions
         'ngf': 64,
         'ndf': 64,
         'n_layers_D': 3, # default (not used if netD == basic)

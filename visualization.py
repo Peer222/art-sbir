@@ -36,7 +36,7 @@ def plot(plt, file: Path=None) -> None:
         plt.savefig(fname=file, dpi=300)
 
 
-# dataset.__getitem__() or dataset.load_image_sketch_tuple() -- expects torch.Tensor or PIL.Image
+# dataset.__getitem__() or dataset.load_image_sketch_tuple() -- expects torch.Tensor or PIL.Image in rgb
 def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
     fig = plt.figure(figsize=(9, 2.7 * len(triplets)))
 
@@ -59,7 +59,8 @@ def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
             if not i: plt.title(titles[j])
 
             if inverted[j]: triplet[j] = transforms.RandomInvert(p=1)(triplet[j])
-            if type(triplet[j]) == torch.Tensor: triplet[j] = triplet[j].permute(1, 2, 0)# transforms.ToPILImage()(triplet[j]) # triplet[j].permute(1, 2, 0)
+            if type(triplet[j]) == torch.Tensor: 
+                triplet[j] = triplet[j].squeeze().permute(1, 2, 0)# transforms.ToPILImage()(triplet[j]) # triplet[j].permute(1, 2, 0)
 
             plt.imshow(triplet[j])
 
@@ -84,6 +85,7 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     ax.grid(True, color=Color.LIGHT_GREY)
     ax.tick_params(direction="in", length=0)
     ax.set_axisbelow(True)
+    #ax.set_xlim(xmin=0)
     seaborn.despine(left=True, bottom=True, right=True, top=True)
     #plt.grid(visible=True, color=Color.LIGHT_GREY)
 
@@ -97,8 +99,8 @@ def build_all_loss_curves(train_losses:Dict, test_losses:Dict, result_path:Path,
     i = 0
     for key in train_losses.keys():
         loss = 'loss ' if not 'loss' in key else ''
-        title = titles[i] if len(titles) == len(train_losses.keys()) else f"{key.replace('_', ' ').capitalize()} {loss}curves"
-        show_loss_curves(train_losses[key], test_losses[key], loss_path, title)
+        title = titles[i] if titles else f"{key.replace('_', ' ')} {loss}curves"
+        show_loss_curves(train_losses[key], test_losses[key], loss_path / f'{key}.png', title)
         i += 1
 
 
