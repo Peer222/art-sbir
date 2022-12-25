@@ -96,7 +96,7 @@ def get_sketch_gen_transform(type:str='train'):
 # loads resnet50m state dicts or arbitrary models
 def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
     path = Path("models/") / name
-    loaded = torch.load(path)#, map_location=torch.device('cpu'))
+    loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
 
     if isinstance(loaded, dict):

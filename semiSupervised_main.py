@@ -230,7 +230,7 @@ if __name__ == "__main__":
     hp = parser.parse_args()
 
     # if size is changed sketch vector folder has to be deleted 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.01, img_format='png', img_type='contour_drawings', transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='png', img_type='sketches_png', transform=utils.get_sketch_gen_transform())
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))

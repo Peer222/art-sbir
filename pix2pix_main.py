@@ -88,18 +88,18 @@ if __name__ == '__main__':
 
     EPOCHS = 30
 
-    BATCH_SIZE = 1 # 1 - 10 used depending on experiment
+    BATCH_SIZE = 6 # 1 - 10 used depending on experiment
     BATCH_SIZE_TEST = 1
     LEARNING_RATE = 2e-4 # default for pix2pix
     BETAS = (0.5, 0.999) # default for pix2pix (beta2 fixed)
 
-    DATASET_SIZE = 1 #0.005
+    DATASET_SIZE = 0.01#1 #0.005
 
     # from base_options
     param_dict = {
         'checkpoints_dir': './results',
         'name': 'placeholder', # name of the experiment (can be freely choosed)
-        'save_epoch_freq': 10,
+        'save_epoch_freq': 30,
         'n_epochs': EPOCHS,
 
         'input_nc': 3, # rgb
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         #'preprocess': 'resize_and_crop', # default
         'no_dropout': False, # default for pix2pix (if instanceNorm True (cycle gan))
 
-        #'direction': 'AtoB', # removed
+        'direction': 'AtoB',
         #'dataset_mode': 'aligned', # default for pix2pix -> own dataset
 
         'lambda_L1': 100.0, # weighting for L1_Loss <-> default for pix2pix ('train)
