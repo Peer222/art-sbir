@@ -214,7 +214,7 @@ if __name__ == "__main__":
     parser.add_argument('--min_learning_rate', default=0.00001)
     parser.add_argument('--grad_clip', default=1.)
 
-    parser.add_argument('--save_rate', default=30)
+    parser.add_argument('--save_rate', type=int, default=30)
 
     hp = parser.parse_args()
 
