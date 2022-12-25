@@ -154,6 +154,7 @@ class SketchyDatasetV1(RetrievalDataset):
         if self.sketch_format == 'svg' and not 'svg_available' in data.columns: data = self.__mark_missing_svgs(data) # not all sketches are available as svgs
         for i, row in data.iterrows():
             if row['CategoryID'] >= len(self.classes): break
+            if self.sketch_format == 'svg' and row['svg_available'] == 0: continue
             if row['Eraser_Count'] <= self.max_erase_count and (row['Error?']+row['Context?']+row['Ambiguous?']+row['WrongPose?'] == 0 or not self.only_valid):
                 category = row['Category'].replace(' ', '_')
                 self.photo_paths.append(self.path / self.img_type / category / f"{row['ImageNetID']}.{self.img_format}")
@@ -576,7 +577,7 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 if __name__ == '__main__':
     print('Start generating vectors')
-    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
+    dataset = VectorizedSketchyDatasetV1(size=1, transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
     #dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=0, only_valid=False)
     #dataset3 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=3, only_valid=True)
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
