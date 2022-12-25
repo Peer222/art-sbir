@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
     param_dict = vars(hp)
     param_dict['loaded_model'] = initial_model
-    param_dict['start_token'] = '[0, 0, 0, 1, 0]'
+    param_dict['start_token'] = '[0, 0, 1, 0, 0]'
 
     #create_sample_sketches(model, dataset_test, dataloader_test, hp, Path('./results/Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32'), 0, 10)
 

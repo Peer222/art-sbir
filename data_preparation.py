@@ -155,9 +155,13 @@ class SketchyDatasetV1(RetrievalDataset):
         for i, row in data.iterrows():
             if row['CategoryID'] >= len(self.classes): break
             if self.sketch_format == 'svg' and row['svg_available'] == 0: continue
+
             if row['Eraser_Count'] <= self.max_erase_count and (row['Error?']+row['Context?']+row['Ambiguous?']+row['WrongPose?'] == 0 or not self.only_valid):
                 category = row['Category'].replace(' ', '_')
-                self.photo_paths.append(self.path / self.img_type / category / f"{row['ImageNetID']}.{self.img_format}")
+                # if sketch itself is used as image filename is different
+                img_name = f"{row['ImageNetID']}.{self.img_format}" if not 'sketch' in self.img_type else f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}"
+
+                self.photo_paths.append(self.path / self.img_type / category / img_name)
                 self.sketch_paths.append(self.path / f"sketches_{self.sketch_format}" / category / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}")
 
     # adds svg_available column and updates info/stats.csv
@@ -267,10 +271,11 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
         # !!! added 
         sketch_vector[len(sketch):, 4] = 1
+        sketch_vector = sketch_vector[1:]
 
         image = transforms.ToTensor()( Image.open(self.photo_paths[idx]).convert('RGB') ).unsqueeze(0)
         image = image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None]).squeeze() # instead of self.transform()
-        return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector).to(torch.float32),
+        return { 'length': len(sketch_vector), 'sketch_vector': torch.from_numpy(sketch_vector).to(torch.float32),
                 'photo': image }
 
     @property
