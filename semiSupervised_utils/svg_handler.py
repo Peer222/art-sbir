@@ -32,7 +32,7 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
     if type(result_path) == str: result_path = Path(result_path)
 
     parsed_paths, shape, erase_flag = create_line_representation(filename)
-    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'max_len':max_length, 'reduce_factor': reduce_factor, 'image':[]} # (0.0, 0.0, 1,0,0) not sure wether needed or not | pen touched initial state due to paper ???
+    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'max_len':max_length, 'reduce_factor': reduce_factor, 'image':[]}
 
     x, y = 0, 0
 

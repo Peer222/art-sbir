@@ -77,13 +77,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
 
             step += 1
             
-            train_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
-            train_loss['kl_loss'] += (kl_cost_rgb.item() / hp.batchsize)
-            train_loss['total_loss'] += (loss.item() / hp.batchsize)
+            loss_dict = {'reconstruction_loss': sup_p2s_loss.item(), 'kl_loss': kl_cost_rgb.item(), 'total_loss': loss.item()}
+            train_loss = utils.process_losses(train_loss, loss_dict, hp.batchsize, 'add')
 
-        train_losses['reconstruction_loss'].append(train_loss['reconstruction_loss'] / len(dataloader_train))
-        train_losses['kl_loss'].append(train_loss['kl_loss'] / len(dataloader_train))
-        train_losses['total_loss'].append(train_loss['total_loss'] / len(dataloader_train))
+        train_losses = utils.process_losses(train_losses, train_loss, len(dataloader_train), 'append')
 
         print(f"Epoch:{i_epoch} ** Train ** sup_p2s_loss:{train_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{train_losses['kl_loss'][i_epoch]} ** Total_loss:{train_losses['total_loss'][i_epoch]}", flush=True)
 
@@ -116,13 +113,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
                 sup_p2s_loss = semiSupervised_utils.sketch_reconstruction_loss_withoutMask(photo2sketch_output, x_target)
                 loss = sup_p2s_loss + curr_kl_weight*kl_cost_rgb
 
-                test_loss['reconstruction_loss'] += (sup_p2s_loss.item() / hp.batchsize)
-                test_loss['kl_loss'] += (kl_cost_rgb.item() / hp.batchsize)
-                test_loss['total_loss'] += (loss.item() / hp.batchsize)
+                loss_dict = {'reconstruction_loss': sup_p2s_loss.item(), 'kl_loss': kl_cost_rgb.item(), 'total_loss': loss.item()}
+                test_loss = utils.process_losses(test_loss, loss_dict, hp.batchsize, 'add')
 
-        test_losses['reconstruction_loss'].append(test_loss['reconstruction_loss'] / len(dataloader_test))
-        test_losses['kl_loss'].append(test_loss['kl_loss'] / len(dataloader_test))
-        test_losses['total_loss'].append(test_loss['total_loss'] / len(dataloader_test))
+        test_losses = utils.process_losses(test_losses, test_loss, len(dataloader_test), 'append')
 
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
@@ -136,17 +130,10 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             model.to(device)
 
             create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
-            create_loss_curves(train_losses, test_losses, i_epoch, result_path)
+            visualization.build_all_loss_curves(train_losses, test_losses, result_path / f'loss_curves_{i_epoch}', i_epoch, result_path)
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
-
-
-def create_loss_curves(train_losses, test_losses, epoch, result_path):
-    loss_path = result_path / f'loss_curves_{epoch}'
-    if not loss_path.is_dir(): loss_path.mkdir(parents=True, exist_ok=True)
-    visualization.show_loss_curves(train_losses['kl_loss'], test_losses['kl_loss'], loss_path / 'kl_loss_curves.png')
-    visualization.show_loss_curves(train_losses['reconstruction_loss'], test_losses['reconstruction_loss'], loss_path / 'reconstruction_loss_curves.png')
-    visualization.show_loss_curves(train_losses['total_loss'], test_losses['total_loss'], loss_path / 'total_loss_curves.png')
+    
 
 def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch, max=15):
     samples = []

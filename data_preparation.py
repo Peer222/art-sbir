@@ -151,11 +151,25 @@ class SketchyDatasetV1(RetrievalDataset):
     # photo paths will be duplicated so that there are a equal number of sketch/photo pairs
     def _load_paths(self) -> None:
         data = pd.read_csv(self.path / 'info' / 'stats.csv')
+        if self.sketch_format == 'svg' and not 'svg_available' in data.columns: data = self.__mark_missing_svgs(data) # not all sketches are available as svgs
         for i, row in data.iterrows():
             if row['CategoryID'] >= len(self.classes): break
             if row['Eraser_Count'] <= self.max_erase_count and (row['Error?']+row['Context?']+row['Ambiguous?']+row['WrongPose?'] == 0 or not self.only_valid):
-                self.photo_paths.append(self.path / self.img_type / row['Category'] / f"{row['ImageNetID']}.{self.img_format}")
-                self.sketch_paths.append(self.path / f"sketches_{self.sketch_format}" / row['Category'] / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}")
+                category = row['Category'].replace(' ', '_')
+                self.photo_paths.append(self.path / self.img_type / category / f"{row['ImageNetID']}.{self.img_format}")
+                self.sketch_paths.append(self.path / f"sketches_{self.sketch_format}" / category / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}")
+
+    # adds svg_available column and updates info/stats.csv
+    def __mark_missing_svgs(self, data):
+        data['svg_available'] = 0
+         
+        for i, row in data.iterrows():
+            category = row['Category'].replace(' ', '_')
+            svg_path = self.path / f"sketches_{self.sketch_format}" / category / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}"
+            if svg_path.exists(): data.loc[i, 'svg_available'] = 1
+
+        data.to_csv(self.path / 'info' / 'stats.csv')
+        return data
 
     @property
     def state_dict(self) -> Dict:
@@ -212,7 +226,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         self.maximum_length = 100 # if 0 or reduce_factor = 1 itbwill not be applied
 
         # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
-        self.vector_path = self.path / f'sketch_vectors_{self.maximum_length}_{self.reduce_factor}_{int(self.size*100)}_V2'
+        self.vector_path = self.path / f'sketch_vectors_{self.maximum_length}_{self.reduce_factor}_V2' #_{int(self.size*100)}_V2
         self.vectorized_sketches = []
 
         if not self.vector_path.is_dir():
@@ -255,7 +269,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
         image = transforms.ToTensor()( Image.open(self.photo_paths[idx]).convert('RGB') ).unsqueeze(0)
         image = image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None]).squeeze() # instead of self.transform()
-        return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector),
+        return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector).to(torch.float32),
                 'photo': image }
 
     @property
@@ -561,9 +575,10 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), only_valid=False)
-    dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=0, only_valid=False)
-    dataset3 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=3, only_valid=True)
+    print('Start generating vectors')
+    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
+    #dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=0, only_valid=False)
+    #dataset3 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=3, only_valid=True)
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
     #print(dataset.__getitem__(1))
     #print(len(dataset.categorized_images.index))
@@ -582,7 +597,7 @@ if __name__ == '__main__':
 
     #print(dataset.state_dict)
     print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset.vectorized_sketches))
-    print(len(dataset2), len(dataset2.sketch_paths), len(dataset2.photo_paths), len(dataset2.vectorized_sketches))
-    print(len(dataset3), len(dataset3.sketch_paths), len(dataset3.photo_paths), len(dataset3.vectorized_sketches))
+    #print(len(dataset2), len(dataset2.sketch_paths), len(dataset2.photo_paths), len(dataset2.vectorized_sketches))
+    #print(len(dataset3), len(dataset3.sketch_paths), len(dataset3.photo_paths), len(dataset3.vectorized_sketches))
     print(dataset.__getitem__(0))
 
