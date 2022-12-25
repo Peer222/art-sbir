@@ -86,13 +86,15 @@ class RetrievalDataset(Dataset):
         pass
 
     # samples sketch/image pairs depending on mode [train/test]
-    def _sample(self) -> None:
+    def _sample(self, lists) -> None:
+        splitted_lists = train_test_split(*lists, test_size=self.split_ratio, random_state=42, shuffle=True)
+
         if self.mode == 'train':
-            self.sketch_paths, _, self.photo_paths, _ = train_test_split(self.sketch_paths, self.photo_paths, 
-                                                        test_size=self.split_ratio, random_state=42, shuffle=True)
+            if len(lists) == 2: self.sketch_paths, _, self.photo_paths, _ = splitted_lists
+            elif len(lists) == 3: self.sketch_paths, _, self.photo_paths, _, self.vectorized_sketches, _ = splitted_lists
         elif self.mode == 'test':
-            _, self.sketch_paths, _, self.photo_paths = train_test_split(self.sketch_paths, self.photo_paths, 
-                                                        test_size=self.split_ratio, random_state=42, shuffle=True)
+            if len(lists) == 2: _, self.sketch_paths, _, self.photo_paths = splitted_lists
+            elif len(lists) == 3: _, self.sketch_paths, _, self.photo_paths, _, self.vectorized_sketches = splitted_lists
         else:
             raise ValueError("invalid mode: [train, test]")
 
@@ -118,16 +120,20 @@ class SketchyDatasetV1(RetrievalDataset):
     # no random transformation allowed because sketch/ image pairs
     # sketch/img format: png/svg/jpg, img type: photos or drawings?, mode: test or train, split_ratio: [0,1]
     def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), 
-                mode="train", split_ratio=0.1, size=1.0, seed=42) -> None:
+                mode="train", split_ratio=0.1, size=1.0, seed=42, max_erase_count=99999, only_valid=True, _sample=True) -> None:
 
         super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+        self.only_valid = only_valid
+        self.max_erase_count = max_erase_count
 
         self.path = Path("data/sketchy")
 
         self.classes, self.classes_to_idx = self._sketchy_classes()
 
         self._load_paths()
-        self._sample()
+        if _sample: self._sample([self.sketch_paths, self.photo_paths])
+
+        print(len(self.sketch_paths), len(self.photo_paths))
 
     # retrieves classes and selects first n classes depending on size parameter
     def _sketchy_classes(self) -> Tuple[List[str], Dict[str, int], int]:
@@ -144,24 +150,24 @@ class SketchyDatasetV1(RetrievalDataset):
 
     # photo paths will be duplicated so that there are a equal number of sketch/photo pairs
     def _load_paths(self) -> None:
-        for cls in self.classes:
-            self.sketch_paths += list( (self.path / ("sketches_" + self.sketch_format)).glob(f"{cls}/*.{self.sketch_format}") )
-            """
-            # works but then train_test_split is not possible because of different number of sketches and images
-            self.photo_paths += list( (self.path / self.img_type).glob(f"{cls}/*.{self.img_format}") )
-            """
-        for path in self.sketch_paths:
-            if not 'sketch' in self.img_type:
-                filename = re.search('n\d+_\d+', path.name).group() + '.' + self.img_format
-            else: 
-                filename = path.stem + '.' + self.img_format
-            photo_path = self.path / self.img_type / path.parent.name / filename 
-            self.photo_paths.append(Path(photo_path))
+        data = pd.read_csv(self.path / 'info' / 'stats.csv')
+        for i, row in data.iterrows():
+            if row['CategoryID'] >= len(self.classes): break
+            if row['Eraser_Count'] <= self.max_erase_count and (row['Error?']+row['Context?']+row['Ambiguous?']+row['WrongPose?'] == 0 or not self.only_valid):
+                self.photo_paths.append(self.path / self.img_type / row['Category'] / f"{row['ImageNetID']}.{self.img_format}")
+                self.sketch_paths.append(self.path / f"sketches_{self.sketch_format}" / row['Category'] / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}")
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['valid_only'] = self.only_valid
+        state_dict['max_erase_count'] = self.max_erase_count
+        return state_dict
 
 
 class SketchyDatasetV2(SketchyDatasetV1):
-    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), mode="train", split_ratio=0.1, size=0.1, seed=42) -> None:
-        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=transforms.ToTensor(), mode="train", split_ratio=0.1, size=0.1, seed=42, max_erase_count=99999, only_valid=True) -> None:
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed, max_erase_count, only_valid)
 
         self.categorized_images = self._provide_categorized_images()
 
@@ -191,9 +197,9 @@ class SketchyDatasetV2(SketchyDatasetV1):
 class VectorizedSketchyDatasetV1(SketchyDatasetV1):
     
     def __init__(self, sketch_format='svg', img_format='jpg', img_type='photos', transform=transforms.ToTensor(), 
-                mode='train', split_ratio=0.1, size=1.0, seed=42, include_erased:bool=True) -> None:
+                mode='train', split_ratio=0.1, size=1.0, seed=42, max_erase_count=99999, only_valid=True) -> None:
 
-        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed, max_erase_count, only_valid, _sample=False)
 
         # inspired by Photo2SKetch_Dataset, semi-supervised fg-sbir
         # maybe max seq len has to be added
@@ -204,45 +210,40 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
         self.reduce_factor = 2
         self.maximum_length = 100 # if 0 or reduce_factor = 1 itbwill not be applied
-        self.include_erased = include_erased
 
         # if folder doesn't exist sketch tuples are loaded otherwise loaded and created
-        self.vector_path = self.path / f'sketch_vectors_{mode}_{self.maximum_length}_{self.reduce_factor}_{int(self.size*100)}_V2'
+        self.vector_path = self.path / f'sketch_vectors_{self.maximum_length}_{self.reduce_factor}_{int(self.size*100)}_V2'
         self.vectorized_sketches = []
 
         if not self.vector_path.is_dir():
+            if self.only_valid: print('Warning: Only svgs of valid sketches will be created - eventually NotFound errors with different settings', flush=True)
             for path in self.sketch_paths:
                 (self.vector_path / path.parent.name).mkdir(parents=True, exist_ok=True)
                 sketch = semiSupervised_utils.parse_svg(path, self.vector_path / path.parent.name, reduce_factor=self.reduce_factor, max_length=self.maximum_length)
                 self.vectorized_sketches.append(sketch)
-                self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
-                self.min_seq_len = min(self.min_seq_len, len(sketch['image']))
-                self.avg_seq_len += len(sketch['image'])
         else:
             for path in self.sketch_paths:
                 vector_path = self.vector_path / path.parent.name / (path.stem + '.json')
                 sketch = semiSupervised_utils.load_tuple_representation(vector_path)
                 self.vectorized_sketches.append(sketch)
-                self.max_seq_len = max(self.max_seq_len, len(sketch['image']))
-                self.min_seq_len = min(self.min_seq_len, len(sketch['image']))
-                self.avg_seq_len += len(sketch['image'])
 
-        self.avg_seq_len /= len(self.vectorized_sketches)
+        self._sample([self.sketch_paths, self.photo_paths, self.vectorized_sketches])
+
+
+        seq_lengths = [len(sketch['image']) for sketch in self.vectorized_sketches]
+        self.avg_seq_len = np.round(np.mean(seq_lengths) + np.std(seq_lengths)) # np.mean(seq_lengths) -> from original paper std * 0.5 in shoeV2 dataset
+        self.max_seq_len = np.max(seq_lengths)
+        self.min_seq_len = np.min(seq_lengths)
 
         print(f"max_seq_len: {self.max_seq_len}, min_seq_len: {self.min_seq_len}, avg_seq_len: {self.avg_seq_len:.3f}")
 
         # scales coordinates by standard deviation
                 
-        data = []
-        for vec_sketch in self.vectorized_sketches:
-            data.extend(np.array(vec_sketch['image'])[:, 0])
-            data.extend(np.array(vec_sketch['image'])[:, 1])
-        data = np.array(data)
-        scale_factor = np.std(data)
+        self.vectorized_sketches = self.purify(self.vectorized_sketches)
+        self.vectorized_sketches = self.normalize(self.vectorized_sketches)
 
-        for vec_sketch in self.vectorized_sketches:
-            for line in vec_sketch['image']:
-                line[:2] /= scale_factor
+        self.mean = torch.tensor([0.485, 0.456, 0.406])
+        self.std = torch.tensor([0.229, 0.224, 0.225])
 
     def __getitem__(self, idx: int) -> Dict:
         # fill all sketches so they have same number of strokes
@@ -251,23 +252,58 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         sketch_vector[:len(sketch), :] = semiSupervised_utils.reshape_vectorSketch(self.vectorized_sketches[idx])['image']
         # !!! added 
         sketch_vector[len(sketch):, 4] = 1
+
+        image = transforms.ToTensor()( Image.open(self.photo_paths[idx]).convert('RGB') ).unsqueeze(0)
+        image = image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None]).squeeze() # instead of self.transform()
         return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector),
-                'photo': self.transform(Image.open(self.photo_paths[idx]).convert('RGB')) }
+                'photo': image }
 
     @property
     def state_dict(self) -> Dict:
         state_dict = super().state_dict
-        state_dict['sequence_stats'] = {'max_seq_len': self.max_seq_len, 'min_seq_len': self.min_seq_len, 'avg_seq_len': self.avg_seq_len}
+        state_dict['sequence_stats'] = {'max_seq_len': int(self.max_seq_len), 'min_seq_len': int(self.min_seq_len), 'avg_seq_len': int(self.avg_seq_len)}
 
-        state_dict['include_erased'] = self.include_erased
         state_dict['reduce_factor'] = self.reduce_factor
         state_dict['maximum_length'] = self.maximum_length
         state_dict['V2'] = 'V2' in str(self.vector_path)
         return state_dict
 
+    def purify(self, vectorized_sketches):
+        """removes to small or too long sequences + removes large gaps"""
+        for i in range(len(vectorized_sketches) - 1, -1, -1):
+            seq = np.array(vectorized_sketches[i]['image'], dtype=np.float32)
+            if seq.shape[0] <= self.max_seq_len and seq.shape[0] > 10:
+                seq = np.minimum(seq, 1000)
+                seq = np.maximum(seq, -1000)
+                #seq = np.array(seq, dtype=np.float32)
+                vectorized_sketches[i]['image'] = seq
+            else:
+                self.sketch_paths.pop(i)
+                self.photo_paths.pop(i)
+        return vectorized_sketches
+
+    def calculate_normalizing_scale_factor(self, vectorized_sketches):
+        """Calculate the normalizing factor explained in appendix of sketch-rnn."""
+        data = []
+        for i in range(len(vectorized_sketches)):
+            strokes = vectorized_sketches[i]['image']
+            for j in range(len(strokes)):
+                data.append(strokes[j, 0])
+                data.append(strokes[j, 1])
+        data = np.array(data)
+        return np.std(data)
+
+    def normalize(self, vectorized_sketches):
+        """Normalize entire dataset (delta_x, delta_y) by the scaling factor."""
+        scale_factor = self.calculate_normalizing_scale_factor(vectorized_sketches)
+        for i in range(len(vectorized_sketches)):
+            vectorized_sketches[i]['image'][:, 0:2] /= scale_factor
+        return vectorized_sketches
+
+
 class SketchyDatasetPix2Pix(SketchyDatasetV1):
-    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=None, mode="train", split_ratio=0.1, size=1, seed=42) -> None:
-        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed)
+    def __init__(self, sketch_format='png', img_format='jpg', img_type="photos", transform=None, mode="train", split_ratio=0.1, size=1, seed=42, max_erase_count=99999, only_valid=True) -> None:
+        super().__init__(sketch_format, img_format, img_type, transform, mode, split_ratio, size, seed, max_erase_count, only_valid)
 
         self.grayscale_sketch = True
         self.transform_img = self.transform_pix2pix(to_grayscale=False)
@@ -309,8 +345,8 @@ class QuickDrawDatasetV1(RetrievalDataset):
 
         seq_lengths = [len(seq) for seq in self.sketches]
         self.avg_seq_len = int(np.round(np.mean(seq_lengths) + np.std(seq_lengths))) # np.mean(seq_lengths) -> from original paper
-        self.max_seq_len = np.max(seq_lengths)
-        self.min_seq_len = np.min(seq_lengths)
+        self.max_seq_len = int(np.max(seq_lengths))
+        self.min_seq_len = int(np.min(seq_lengths))
 
         self.sketches = self.purify(self.sketches)
         self.sketches = self.normalize(self.sketches)
@@ -493,17 +529,17 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         return self.transform(sketch), pos_tensor, neg_tensor, style, genre
 
 # returns train and test dataset
-def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor()):
+def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
 
     if dataset == "Sketchy":
-        train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
-        test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
+        train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed, max_erase_count, only_valid)
+        test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed, max_erase_count, only_valid)
     elif dataset == 'SketchyV2':
-        train_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
-        test_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
+        train_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed, max_erase_count, only_valid)
+        test_dataset = SketchyDatasetV2(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed, max_erase_count, only_valid)
     elif dataset == 'VectorizedSketchyV1':
-        train_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'train', split_ratio, size, seed, include_erased=True)
-        test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, include_erased=True)
+        train_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'train', split_ratio, size, seed, max_erase_count, only_valid)
+        test_dataset = VectorizedSketchyDatasetV1('svg', img_format, img_type, transform, 'test', split_ratio, size, seed, max_erase_count, only_valid)
     elif dataset == 'SketchyPix2Pix':
         train_dataset = SketchyDatasetPix2Pix(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed)
         test_dataset = SketchyDatasetPix2Pix(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed)
@@ -525,7 +561,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
+    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), only_valid=False)
+    dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=0, only_valid=False)
+    dataset3 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=3, only_valid=True)
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
     #print(dataset.__getitem__(1))
     #print(len(dataset.categorized_images.index))
@@ -542,8 +580,9 @@ if __name__ == '__main__':
 
     #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
 
-    dataset = QuickDrawDatasetV1()
-
-    print(dataset.state_dict)
+    #print(dataset.state_dict)
+    print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset.vectorized_sketches))
+    print(len(dataset2), len(dataset2.sketch_paths), len(dataset2.photo_paths), len(dataset2.vectorized_sketches))
+    print(len(dataset3), len(dataset3.sketch_paths), len(dataset3.photo_paths), len(dataset3.vectorized_sketches))
     print(dataset.__getitem__(0))
 

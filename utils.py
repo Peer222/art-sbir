@@ -108,7 +108,7 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
             print("Model with classification layer loaded")
             model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
-        elif dataset == 'VectorizedSketchyV1':
+        elif dataset == 'VectorizedSketchyV1' or dataset == 'QuickdrawV1':
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(128, 512, 20, max_seq_len)
     else:
