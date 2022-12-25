@@ -121,19 +121,19 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
         print(f"Epoch:{i_epoch} ** Test ** sup_p2s_loss:{test_losses['reconstruction_loss'][i_epoch]} ** kl_cost_rgb:{test_losses['kl_loss'][i_epoch]} ** Total_loss:{test_losses['total_loss'][i_epoch]}", flush=True)
         # total_losses not comparable due to changing curr_kl_weighting -> compare only by two seperate losses and may be add them 
 
-        if (i_epoch+1) % 30 == 0:
-            param_dict['epoch'] = i_epoch
+        if (i_epoch+1) % hp.save_rate == 0:
+            param_dict['epoch'] = i_epoch + 1
             training_dict = {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
             # if not result_path or (i_epoch+1) % 25 == 0: result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={})
             result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={}) # saving more often because of larger dataset
             model.to(device)
 
-            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch)
-            visualization.build_all_loss_curves(train_losses, test_losses, result_path / f'loss_curves_{i_epoch}', i_epoch, result_path)
+            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch + 1)
+            visualization.build_all_loss_curves(train_losses, test_losses, result_path / f'loss_curves_{i_epoch + 1}', i_epoch + 1, result_path)
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
-    
+
 
 def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, epoch, max=15):
     samples = []
@@ -214,10 +214,12 @@ if __name__ == "__main__":
     parser.add_argument('--min_learning_rate', default=0.00001)
     parser.add_argument('--grad_clip', default=1.)
 
+    parser.add_argument('--save_rate', default=30)
+
     hp = parser.parse_args()
 
     # if size is changed sketch vector folder has to be deleted 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='png', img_type='sketches_png', transform=utils.get_sketch_gen_transform())
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='png', img_type='sketches_png', transform=None, max_erase_count=1, only_valid=True)
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
