@@ -159,7 +159,7 @@ class SketchyDatasetV1(RetrievalDataset):
             if row['Eraser_Count'] <= self.max_erase_count and (row['Error?']+row['Context?']+row['Ambiguous?']+row['WrongPose?'] == 0 or not self.only_valid):
                 category = row['Category'].replace(' ', '_')
                 # if sketch itself is used as image filename is different
-                img_name = f"{row['ImageNetID']}.{self.img_format}" if not 'sketch' in self.img_type else f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}"
+                img_name = f"{row['ImageNetID']}.{self.img_format}" if not 'sketch' in self.img_type else f"{row['ImageNetID']}-{row['SketchID']}.{self.img_format}"
 
                 self.photo_paths.append(self.path / self.img_type / category / img_name)
                 self.sketch_paths.append(self.path / f"sketches_{self.sketch_format}" / category / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}")
