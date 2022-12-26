@@ -274,7 +274,8 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
         sketch_vector = sketch_vector[1:]
         sketch_vector = np.concatenate([sketch_vector, [[0, 0, 0, 0, 1]]])
 
-        image = transforms.ToTensor()( Image.open(self.photo_paths[idx]).convert('RGB') ).unsqueeze(0)
+        if not self.img_format == 'svg': image = transforms.ToTensor()( Image.open(self.photo_paths[idx]).convert('RGB') ).unsqueeze(0)
+        else: image = 1. - semiSupervised_utils.batch_rasterize_relative(torch.from_numpy(sketch_vector).to(torch.float32).unsqueeze(0)) / 255.
         image = image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None]).squeeze() # instead of self.transform()
         return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector).to(torch.float32),
                 'photo': image }
@@ -583,7 +584,7 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 if __name__ == '__main__':
     print('Start generating vectors')
-    dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
+    dataset = VectorizedSketchyDatasetV1(size=0.01, img_type='sketches_svg', img_format='svg', transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
     #dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=0, only_valid=False)
     #dataset3 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=3, only_valid=True)
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
