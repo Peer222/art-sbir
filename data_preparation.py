@@ -276,7 +276,7 @@ class VectorizedSketchyDatasetV1(SketchyDatasetV1):
 
         image = transforms.ToTensor()( Image.open(self.photo_paths[idx]).convert('RGB') ).unsqueeze(0)
         image = image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None]).squeeze() # instead of self.transform()
-        return { 'length': len(sketch_vector), 'sketch_vector': torch.from_numpy(sketch_vector).to(torch.float32),
+        return { 'length': len(sketch), 'sketch_vector': torch.from_numpy(sketch_vector).to(torch.float32),
                 'photo': image }
 
     @property
@@ -403,7 +403,7 @@ class QuickDrawDatasetV1(RetrievalDataset):
         image = 1. - semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)) / 255.
         image = image.sub_(self.mean[None, :, None, None]).div_(self.std[None, :, None, None]).squeeze()
 
-        return {'length': len(sketch), 'sketch_vector': sketch, 'photo': image }
+        return {'length': len(self.sketches[idx]), 'sketch_vector': sketch, 'photo': image }
 
     @property
     def state_dict(self) -> Dict:
