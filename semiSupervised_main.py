@@ -129,7 +129,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             result_path = utils.save_model(model, dataset_train.state_dict, training_dict, param_dict, inference_dict={}) # saving more often because of larger dataset
             model.to(device)
 
-            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch + 1)
+            create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch + 1, max=25)
             visualization.build_all_loss_curves(train_losses, test_losses, result_path, i_epoch + 1)
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
@@ -155,7 +155,7 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
             for i in range(len(photo2sketch_output)):
                 if i_batch * hp.batchsize + i > max: break
                 sketch = photo2sketch_output[i]
-                #image = rgb_image[i]
+                image = rgb_image[i]
 
                 svg_path = result_path / f'svgs_{epoch}'
                 if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
@@ -172,13 +172,13 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
                 #sketch[length_sketch[i]:, 4 ] = 1.0
                 #sketch[length_sketch[i]:, 2:4] = 0.0
 
-                sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i] #Quickdraw
-                image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i] #QUickdraw
+                #sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i] #Quickdraw
+                #image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i] #QUickdraw
 
-                image = Image.open(image_path) #quickdraw
+                #image = Image.open(image_path) #quickdraw
                 rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
-                original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png')) #quickdraw
-                samples.append((image, rasterized_sketch.cpu(), original_sketch)) #original_sketch quickdraw -> .cpu()
+                #original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png')) #quickdraw
+                samples.append((image, rasterized_sketch.cpu(), image)) #original_sketch quickdraw -> .cpu()
 
     visualization.show_triplets(samples, result_path / f'samples_{epoch}.png', mode='image')
 
@@ -219,14 +219,14 @@ if __name__ == "__main__":
     hp = parser.parse_args()
 
     # if size is changed sketch vector folder has to be deleted 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='png', img_type='sketches_png', transform=None, max_erase_count=1, only_valid=True)
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='QuickdrawV1', size=0.01, img_format='png', img_type='sketches_png', transform=None, max_erase_count=1, only_valid=True)
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
 
     # initial model is used
-    initial_model = 'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_10-13.pth'
-    model = utils.load_model(initial_model, 'VectorizedSketchyV1', max_seq_len=dataset_test.maximum_length) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    initial_model = 'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_05-20.pth'
+    model = utils.load_model(initial_model, 'QuickdrawV1', max_seq_len=dataset_test.maximum_length) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
@@ -235,9 +235,9 @@ if __name__ == "__main__":
     param_dict['loaded_model'] = initial_model
     param_dict['start_token'] = '[0, 0, 1, 0, 0]'
 
-    #create_sample_sketches(model, dataset_test, dataloader_test, hp, Path('./results/Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32'), 0, 10)
+    create_sample_sketches(model, dataset_test, dataloader_test, hp, Path('./results/test'), 'own_Quickdraw_withoutMask_on_QUICKDRAW', 30)
 
-    training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
+    #training_dict = train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp)
 
     inference_dict = {}
 

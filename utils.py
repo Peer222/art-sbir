@@ -111,6 +111,7 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0) -> nn.Module:
         elif dataset == 'VectorizedSketchyV1' or dataset == 'QuickdrawV1':
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(128, 512, 20, max_seq_len)
+            model.load_state_dict(loaded)
     else:
         print("Model completely loaded from file")
         model = loaded
