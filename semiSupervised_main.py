@@ -130,7 +130,7 @@ def train_sketch_gen(model, dataloader_train, dataloader_test, optimizer, hp):
             model.to(device)
 
             create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path, i_epoch + 1)
-            visualization.build_all_loss_curves(train_losses, test_losses, result_path / f'loss_curves_{i_epoch + 1}', i_epoch + 1, result_path)
+            visualization.build_all_loss_curves(train_losses, test_losses, result_path, i_epoch + 1)
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
