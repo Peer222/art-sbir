@@ -195,24 +195,24 @@ if __name__ == "__main__":
     parser.add_argument('--eval_freq_iter', type=int, default=1000)
 
     # has to be changed in utils load model as well
-    parser.add_argument('--enc_rnn_size', default=256)
-    parser.add_argument('--dec_rnn_size', default=512)
-    parser.add_argument('--z_size', default=128)
+    parser.add_argument('--enc_rnn_size', type=int, default=256)
+    parser.add_argument('--dec_rnn_size', type=int, default=512)
+    parser.add_argument('--z_size', type=int, default=128)
 
-    parser.add_argument('--num_mixture', default=20)
-    parser.add_argument('--input_dropout_prob', default=0.9)
-    parser.add_argument('--output_dropout_prob', default=0.9)
-    parser.add_argument('--batch_size_sketch_rnn', default=100)
+    parser.add_argument('--num_mixture', type=int, default=20)
+    parser.add_argument('--input_dropout_prob', type=float, default=0.9)
+    parser.add_argument('--output_dropout_prob', type=float, default=0.9)
+    parser.add_argument('--batch_size_sketch_rnn', type=int, default=100)
 
-    parser.add_argument('--kl_weight_start', default=0.01)
-    parser.add_argument('--kl_decay_rate', default=0.99995)
-    parser.add_argument('--kl_tolerance', default=0.2)
-    parser.add_argument('--kl_weight', default=1.0)
+    parser.add_argument('--kl_weight_start', type=float, default=0.01)
+    parser.add_argument('--kl_decay_rate', type=float, default=0.99995)
+    parser.add_argument('--kl_tolerance', type=float, default=0.2)
+    parser.add_argument('--kl_weight', type=float, default=1.0)
 
-    parser.add_argument('--learning_rate', default=0.0001)
-    parser.add_argument('--decay_rate', default=0.9999)
-    parser.add_argument('--min_learning_rate', default=0.00001)
-    parser.add_argument('--grad_clip', default=1.)
+    parser.add_argument('--learning_rate', type=float, default=0.0001)
+    parser.add_argument('--decay_rate', type=float, default=0.9999)
+    parser.add_argument('--min_learning_rate', type=float, default=0.00001)
+    parser.add_argument('--grad_clip', type=float, default=1.)
 
     parser.add_argument('--save_rate', type=int, default=30)
 
