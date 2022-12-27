@@ -155,7 +155,6 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
             for i in range(len(photo2sketch_output)):
                 if i_batch * hp.batchsize + i > max: break
                 sketch = photo2sketch_output[i]
-                #image = rgb_image[i]
 
                 svg_path = result_path / f'svgs_{epoch}'
                 if not svg_path.is_dir(): svg_path.mkdir(parents=True, exist_ok=True)
@@ -173,9 +172,9 @@ def create_sample_sketches(model, dataset_test, dataloader_test, hp, result_path
                 #sketch[length_sketch[i]:, 2:4] = 0.0
 
                 sketch_path = dataset_test.sketch_paths[i_batch * hp.batchsize + i] #Quickdraw
-                image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i] #QUickdraw
+                #image_path = dataset_test.photo_paths[i_batch * hp.batchsize + i] #QUickdraw
 
-                image = Image.open(image_path) #quickdraw
+                image = rgb_image[i].cpu() #image = Image.open(image_path) #quickdraw
                 rasterized_sketch = semiSupervised_utils.batch_rasterize_relative(sketch.unsqueeze(0)).squeeze()
                 original_sketch = Image.open(Path('data/sketchy/sketches_png') / sketch_path.parent.name / (sketch_path.stem + '.png')) #quickdraw
                 samples.append((image, rasterized_sketch.cpu(), original_sketch)) #original_sketch quickdraw -> .cpu()
@@ -194,12 +193,11 @@ if __name__ == "__main__":
     parser.add_argument('--max_epoch', type=int, default=1)
     parser.add_argument('--eval_freq_iter', type=int, default=1000)
 
-    # has to be changed in utils load model as well
     parser.add_argument('--enc_rnn_size', type=int, default=256)
     parser.add_argument('--dec_rnn_size', type=int, default=512)
     parser.add_argument('--z_size', type=int, default=128)
-
     parser.add_argument('--num_mixture', type=int, default=20)
+
     parser.add_argument('--input_dropout_prob', type=float, default=0.9)
     parser.add_argument('--output_dropout_prob', type=float, default=0.9)
     parser.add_argument('--batch_size_sketch_rnn', type=int, default=100)
@@ -219,7 +217,7 @@ if __name__ == "__main__":
     hp = parser.parse_args()
 
     # if size is changed sketch vector folder has to be deleted 
-    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='jpg', img_type='photos', transform=None, max_erase_count=1, only_valid=True)
+    dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='svg', img_type='sketches_svg', transform=None, max_erase_count=1, only_valid=True)
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
@@ -228,7 +226,7 @@ if __name__ == "__main__":
     #initial_model = 'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_05-20.pth'#'../../additional/semi_supervised_test/models/original_model_quickdraw_150000.pth'#'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_05-20.pth'
 
     initial_model = 'Photo2Sketch_QuickDrawDatasetV1_2022-12-20_10-13.pth'
-    model = utils.load_model(initial_model, 'VectorizedSketchyV1', max_seq_len=dataset_test.maximum_length) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
+    model = utils.load_model(initial_model, 'VectorizedSketchyV1', max_seq_len=dataset_test.maximum_length, options=hp) #models.Photo2Sketch(hp.z_size, hp.dec_rnn_size, hp.num_mixture, dataset_train.max_seq_len)
     model.to(device)
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=hp.learning_rate, betas=(0.5, 0.999))
