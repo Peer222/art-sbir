@@ -112,6 +112,9 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
+        elif dataset == 'LineDrawingsV1':
+            print('Drawing model laoded')
+            model = None
     else:
         print("Model completely loaded from file")
         model = loaded

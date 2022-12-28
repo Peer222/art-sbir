@@ -94,7 +94,7 @@ parser.add_argument("-l", "--learning_rate", type=float, default=0.00001, help="
 parser.add_argument("-m", "--model", type=str, default='openResNet50m.pth', help="Choose a model - default:openResNet50m.pth")
 parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy', 'SketchyV2', 'Kaggle'], help="Choose a dataset")
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
-parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
+parser.add_argument("--inference_only", action="store_true", help="If set extended inference will be executed after training")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings'], help="Image type")
 
@@ -107,8 +107,6 @@ WEIGHT_DECAY = args.weight_decay
 
 MODEL = args.model
 DATASET = args.dataset
-
-with_inference = args.inference
 
 model = utils.load_model(MODEL, dataset=DATASET)
 model.freeze_layers()
@@ -145,7 +143,7 @@ print(data_dict, flush=True)
 
 training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer, with_classification)
 
-if with_inference: inference_dict = inference.run_inference(model, test_dataset)
+if args.inference_only: inference_dict = inference.run_inference(model, test_dataset)
 
 # save
 folder = utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)
