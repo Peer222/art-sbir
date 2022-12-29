@@ -101,7 +101,10 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
-        if dataset == 'Sketchy':
+        if dataset == 'LineDrawingsV1' or 'drawing' in name:
+            print('Drawing model loaded')
+            model = None
+        elif dataset == 'Sketchy':
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded)
         elif dataset == 'SketchyV2':
@@ -112,14 +115,11 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
-        elif dataset == 'LineDrawingsV1':
-            print('Drawing model laoded')
-            model = None
     else:
         print("Model completely loaded from file")
         model = loaded
 
-    print(f"Model {name} loaded")
+    print(f"Model {name} loaded", flush=True)
     return model
 
 # saves model and related parameters and results -> returns result folder path

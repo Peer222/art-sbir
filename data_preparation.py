@@ -483,20 +483,20 @@ class KaggleDatasetImgOnlyV1(Dataset):
 
     def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image]:#, int, int]: # pos_image, neg_image, style, genre
         pos_img = self.image_data.iloc[idx]
-        random_idx = random.randint(0, len(self.image_data) - 1)
-        neg_img = self.image_data.iloc[random_idx]
+        #random_idx = random.randint(0, len(self.image_data) - 1)
+        #neg_img = self.image_data.iloc[random_idx]
 
         #style_label = self.styles.loc[pos_img['style']]['index']
         #genre_label = self.genres.loc[pos_img['genre']]['index']
         #if self.mode == 'test' and pos_img['genre'] > 'miniature': genre_label += 1 # genre miniature is missing in test dataset
 
-        return Image.open(pos_img['filename']), Image.open(neg_img['filename'])#, style_label, genre_label
+        return Image.open(pos_img['filename']) #, Image.open(neg_img['filename'])#, style_label, genre_label
 
     def __getitem__(self, idx:int) -> Tuple[torch.Tensor, torch.Tensor]:#, int, int]:
-        pos_img, neg_img = self.load_image_tuple(idx)#, style, genre = self.load_image_tuple(idx)
+        pos_img = self.load_image_tuple(idx) #, neg_img, style, genre = self.load_image_tuple(idx)
         pos_img = self.transform(pos_img)
-        neg_img = self.transform(neg_img)
-        return pos_img, neg_img#, style, genre
+        #neg_img = self.transform(neg_img)
+        return pos_img #, neg_img#, style, genre
 
     @property
     def state_dict(self) -> Dict:
