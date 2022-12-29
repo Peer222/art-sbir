@@ -15,6 +15,7 @@ from torchinfo import summary
 
 import models
 import pix2pix_model
+from drawing_utils.model import DrawingGenerator
 
 def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
@@ -103,7 +104,8 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
         print("Dictionary used to load model")
         if dataset == 'LineDrawingsV1' or 'drawing' in name:
             print('Drawing model loaded')
-            model = None
+            model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
+            model.load_state_dict(loaded)
         elif dataset == 'Sketchy':
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded)

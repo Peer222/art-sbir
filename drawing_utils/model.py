@@ -28,9 +28,9 @@ class ResidualBlock(nn.Module):
         return x + self.conv_block(x)
 
 
-class Generator(nn.Module):
+class DrawingGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, n_residual_blocks=9, sigmoid=True):
-        super(Generator, self).__init__()
+        super(DrawingGenerator, self).__init__()
 
         # Initial convolution block
         model0 = [   nn.ReflectionPad2d(3),
