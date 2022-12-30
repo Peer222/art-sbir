@@ -117,6 +117,13 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
+        elif dataset == 'Kaggle':
+            model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
+            model.load_state_dict(loaded)
+        elif dataset == 'KaggleV2':
+            model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=70, num_classes2=32) # styles, genres
+            model.load_state_dict(loaded, strict=False)
+
     else:
         print("Model completely loaded from file")
         model = loaded

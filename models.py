@@ -351,15 +351,22 @@ class ModifiedResNet(nn.Module):
 
 
 class ModifiedResNet_with_classification(ModifiedResNet):
-    def __init__(self, layers, output_dim, heads=32, input_resolution=224, width=64, num_classes=125):
+    def __init__(self, layers, output_dim, heads=32, input_resolution=224, width=64, num_classes=125, num_classes2=0):
         super().__init__(layers, output_dim, heads, input_resolution, width)
 
+        self.num_classes = num_classes
+        self.num_classes2 = num_classes2
+
         self.classifier = nn.Linear(output_dim, num_classes)
+        if num_classes2 > 0: self.classifier2 = nn.Linear(output_dim, num_classes2)
 
     def forward(self, x):
         feature = super().forward(x)
         classes = self.classifier(feature)
-        return feature, classes
+        if self.num_classes2 == 0: return feature, classes
+        else:
+            classes2 = self.classifier2(feature)
+            return feature, classes, classes2
 
 
 class LayerNorm(nn.LayerNorm):

@@ -92,11 +92,11 @@ parser.add_argument("-e", "--epochs", type=int, default=1, help="Set number of e
 parser.add_argument("-b", "--batch_size", type=int, default=32, help="Set batch_size for training - default:32")
 parser.add_argument("-l", "--learning_rate", type=float, default=0.00001, help="Set learning rate")
 parser.add_argument("-m", "--model", type=str, default='openResNet50m.pth', help="Choose a model - default:openResNet50m.pth")
-parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy', 'SketchyV2', 'Kaggle'], help="Choose a dataset")
+parser.add_argument("-d", "--dataset", type=str, default='Sketchy', choices=['Sketchy', 'SketchyV2', 'Kaggle', 'KaggleV2'], help="Choose a dataset")
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
 parser.add_argument("--inference_only", action="store_true", help="If set extended inference will be executed after training")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
-parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings'], help="Image type")
+parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
 
 args = parser.parse_args()
 
