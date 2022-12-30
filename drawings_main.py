@@ -29,7 +29,7 @@ def inference(model, dataloader, hyperparams):
     model.eval()
     with torch.inference_mode():
         for batch in tqdm(dataloader):
-            input_image = batch['image']
+            input_image = batch['image'].to(device)
             name = batch['name'][0]
             image = model(input_image)
             save_image(image.data, f"{hyperparams.inference_folder}/{name}.png")
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_name', type=str, default='KaggleDatasetImgOnlyV1')
     parser.add_argument('--size', type=float, default=1.0)
     parser.add_argument('--img_format', type=str, default='jpg')
-    parser.add_argument('--img_type', type=str, default='photos')
+    parser.add_argument('--img_type', type=str, default='images')
 
     # (loaded) model params
     parser.add_argument('--model_name', type=str, default='contour') # contour / anime / opensketch

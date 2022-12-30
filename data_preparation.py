@@ -463,6 +463,10 @@ class KaggleDatasetImgOnlyV1(Dataset):
         self.styles = self._get_classes('style')
         self.genres = self._get_classes('genre')
 
+        Image.MAX_IMAGE_PIXELS = 283327980 # 98873.jpg
+        # truncated test 5322->3917.jpg
+        # truncated train 1313
+
         #print(self.styles.loc['Abstract Expressionism']['index'])
         #print(self.styles.iloc[1].name)
 
@@ -486,8 +490,16 @@ class KaggleDatasetImgOnlyV1(Dataset):
 
     def __getitem__(self, idx:int) -> Dict:
         img_data = self.image_data.iloc[idx]
+        try: 
+            image = Image.open(img_data['filename']).convert('RGB')
+            name = img_data['filename'].stem
+        except Exception as e: 
+            print(f"error at {idx} - Image name: {img_data['filename']}")
+            print(e)
+            image = Image.open(self.image_data.iloc[0]['filename']).convert('RGB')
+            name = 'dummy'
 
-        return {'image': self.transform(Image.open(img_data['filename'])), 'name':img_data['filename'].stem, 'path': str(img_data['filename'])}
+        return {'image': self.transform(image), 'name': name, 'path': str(img_data['filename'])}
 
     @property
     def state_dict(self) -> Dict:
@@ -515,7 +527,7 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
         genre_label = self.genres.loc[pos_img['genre']]['index']
         if self.mode == 'test' and pos_img['genre'] > 'miniature': genre_label += 1 # genre miniature is missing in test dataset
 
-        return Image.open(pos_img['filename']), Image.open(neg_img), style_label, genre_label
+        return Image.open(pos_img['filename']).convert('RGB'), Image.open(neg_img).convert('RGB'), style_label, genre_label
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int, int]: # pos_image, neg_image, style, genre
         pos_img, neg_img, style, genre = self.load_image_tuple(idx)
@@ -538,7 +550,7 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
         pos_tensor, neg_tensor, style, genre = super().__getitem__(idx)
-        sketch = Image.open(self.image_data[idx]['sketchname'])
+        sketch = Image.open(self.image_data[idx]['sketchname']).convert('RGB')
         return self.transform(sketch), pos_tensor, neg_tensor, style, genre
 
 # returns train and test dataset
@@ -591,7 +603,7 @@ if __name__ == '__main__':
     #item = utils.convert_pix2pix_to_255(item)
     #visualization.show_triplets([[item['A'], item['A'], item['B']]], './test2.png', mode='image')
 
-    dataset = KaggleDatasetImgOnlyV1(mode='test')
+    dataset = KaggleDatasetImgOnlyV1(mode='test', size=1.0)
 
     #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
 
@@ -599,5 +611,5 @@ if __name__ == '__main__':
     #print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset.vectorized_sketches))
     #print(len(dataset2), len(dataset2.sketch_paths), len(dataset2.photo_paths), len(dataset2.vectorized_sketches))
     #print(len(dataset3), len(dataset3.sketch_paths), len(dataset3.photo_paths), len(dataset3.vectorized_sketches))
-    print(dataset.__getitem__(0))
+    print(dataset.__getitem__(5322))
 
