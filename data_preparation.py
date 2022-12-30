@@ -629,6 +629,8 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
+    else:
+        raise Exception(f"{dataset} is not available")
 
     return train_dataset, test_dataset
 

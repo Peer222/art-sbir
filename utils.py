@@ -46,6 +46,19 @@ class TripletMarginLoss_with_classification(nn.Module):
     def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, labels):
         return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_weight * (self.classification_loss(cs_logits, labels) + self.classification_loss(cp_logits, labels))
 
+class TripletMarginLoss_with_classification2(nn.Module):
+    def __init__(self, margin, classification_weight=0.25, classification_weight2=0.5):  # styles, genres (same genre for pos and neg img)
+        super().__init__()
+        self.classification_weight = classification_weight
+        self.classification_weight2 = classification_weight2
+
+        self.triplet_loss = nn.TripletMarginLoss(margin=margin)
+        self.classification_loss = nn.CrossEntropyLoss()
+
+    def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, cs_logits2, cp_logits2, labels, labels2):
+        classification_loss = self.classification_loss(cs_logits, labels) + self.classification_loss(cp_logits, labels)
+        classification_loss2 = self.classification_loss(cs_logits2, labels2) + self.classification_loss(cp_logits2, labels2)
+        return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_weight * classification_loss + self.classification_weight2 * classification_loss2
 
 MARGIN = 0.2 # Sketching without Worrying
 
@@ -106,7 +119,7 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
             print('Drawing model loaded')
             model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
             model.load_state_dict(loaded)
-        elif dataset == 'Sketchy':
+        elif dataset == 'SketchyV1' or dataset == 'Sketchy':
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded)
         elif dataset == 'SketchyV2':
@@ -117,7 +130,7 @@ def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> 
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
-        elif dataset == 'Kaggle':
+        elif dataset == 'KaggleV1' or dataset == 'Kaggle':
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded)
         elif dataset == 'KaggleV2':
