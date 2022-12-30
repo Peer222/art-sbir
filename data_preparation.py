@@ -464,8 +464,8 @@ class KaggleDatasetImgOnlyV1(Dataset):
         self.genres = self._get_classes('genre')
 
         Image.MAX_IMAGE_PIXELS = 283327980 # 98873.jpg
-        # truncated test 5322->3917.jpg
-        # truncated train 1313
+        # truncated test 5322->3917.jpg (fixed)
+        # truncated/to large train 1313->79499.jpg, 8739->91033.jpg, 14997->82594.jpg, 24354->101947.jpg, 25280->33557.jpg, 32647->41945.jpg, 34485->50420.jpg, 35464->72255.jpg, 42310->81823.jpg, 51640->95347.jpg, 51683->95010.jpg, 68020->92899.jpg (removed, reason: output/slurm-2738.out)
 
         #print(self.styles.loc['Abstract Expressionism']['index'])
         #print(self.styles.iloc[1].name)
@@ -504,7 +504,7 @@ class KaggleDatasetImgOnlyV1(Dataset):
     @property
     def state_dict(self) -> Dict:
         return {"dataset": f"{self.__class__.__name__}", "size": self.size, "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format, 
-                "seed": self.seed, "mode": self.mode, "transform": str(self.transform)}
+                "seed": self.seed, "mode": self.mode, "transform": str(self.transform), "num_styles": len(self.styles), "num_genres": len(self.genres)}
 
 
 # !!! only works properly with size=1 due to eventually missing genres in one of the datasets (train|test) !!!
@@ -534,6 +534,40 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
         return self.transform(pos_img), self.transform(neg_img), style, genre
 
 # not tested
+class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+        super().__init__(img_format, img_type, transform, mode, size, seed)
+
+        self.sketch_format, self.sketch_type = sketch_format, sketch_type
+
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}/{self.mode}")
+
+        self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
+
+    def _load_sketch_paths(self) -> None:
+        for entry in self.image_data:
+            entry['sketchname'] = self.sketch_path / f"{entry['filename'].stem}.{self.sketch_format}"
+
+    def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, Image.Image]: # sketch, pos_image, neg_image
+        pos_img = self.image_data.iloc[idx]
+        neg_img = random.choice(self.image_data)
+        sketch = Image.open(pos_img['sketchname']).convert('RGB')
+
+        return Image.open(sketch), Image.open(pos_img['filename']).convert('RGB'), Image.open(neg_img).convert('RGB')
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: # sketch pos_image, neg_image
+        sketch, pos_img, neg_img = self.load_image_tuple(idx)
+        return self.transform(sketch), self.transform(pos_img), self.transform(neg_img)
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['sketch_type'] = self.sketch_type
+        state_dict['sketch_format']= self.sketch_format
+        return state_dict
+    
+
+# not tested
 class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
     def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
         super().__init__(img_format, img_type, transform, mode, size, seed)
@@ -548,15 +582,26 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         for entry in self.image_data:
             entry['sketchname'] = self.sketch_path / f"{entry['filename'].stem}.{self.sketch_format}"
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
-        pos_tensor, neg_tensor, style, genre = super().__getitem__(idx)
+    def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, int, int]:
+        pos_img, neg_img, style_label, genre_label = super().load_image_tuple(idx)
         sketch = Image.open(self.image_data[idx]['sketchname']).convert('RGB')
-        return self.transform(sketch), pos_tensor, neg_tensor, style, genre
+        return sketch, pos_img, neg_img, style_label, genre_label
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
+        sketch, pos_img, neg_img, style, genre = self.load_image_tuple(idx)
+        return self.transform(sketch), self.transform(pos_img), self.transform(neg_img), style, genre
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['sketch_type'] = self.sketch_type
+        state_dict['sketch_format']= self.sketch_format
+        return state_dict
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
 
-    if dataset == "Sketchy":
+    if dataset == 'SketchyV1' or dataset == "Sketchy":
         train_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'train', split_ratio, size, seed, max_erase_count, only_valid)
         test_dataset = SketchyDatasetV1(sketch_format, img_format, img_type, transform, 'test', split_ratio, size, seed, max_erase_count, only_valid)
     elif dataset == 'SketchyV2':
@@ -575,7 +620,10 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'KaggleDatasetImgOnlyV2':
         train_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'train', size, seed)
         test_dataset = KaggleDatasetImgOnlyV2(img_format, img_type, transform, 'test', size, seed)
-    elif dataset == 'KaggleDatasetV2':
+    elif dataset == 'KaggleV1' or dataset == 'Kaggle':
+        train_dataset = KaggleDatasetV1(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
+        test_dataset = KaggleDatasetV1(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
+    elif dataset == 'KaggleV2':
         train_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
         test_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
     elif dataset == 'QuickdrawV1':
