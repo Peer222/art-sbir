@@ -22,6 +22,7 @@ from drawing_utils.dataset import UnpairedDepthDataset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# works only with batch size 1
 def inference(model, dataloader, hyperparams):
     print('Inference started', flush=True)
 
@@ -29,7 +30,7 @@ def inference(model, dataloader, hyperparams):
     with torch.inference_mode():
         for batch in tqdm(dataloader):
             input_image = batch['image']
-            name = batch['name']
+            name = batch['name'][0]
             image = model(input_image)
             save_image(image.data, f"{hyperparams.inference_folder}/{name}.png")
     return {}
@@ -51,7 +52,7 @@ if __name__ == '__main__':
 
     # dataset params
     parser.add_argument('--dataset_name', type=str, default='KaggleDatasetImgOnlyV1')
-    parser.add_argument('--size', type=float, default=0.1)
+    parser.add_argument('--size', type=float, default=1.0)
     parser.add_argument('--img_format', type=str, default='jpg')
     parser.add_argument('--img_type', type=str, default='photos')
 
@@ -69,6 +70,7 @@ if __name__ == '__main__':
     param_dict = vars(hyperparams)
 
     if 'Kaggle' in hyperparams.dataset_name: hyperparams.inference_folder = f"data/kaggle/{hyperparams.model_name}_drawings"
+    else: NotImplemented
     folder = Path(hyperparams.inference_folder)
     if not folder.is_dir():
         folder.mkdir(parents=True, exist_ok=True)
@@ -79,7 +81,7 @@ if __name__ == '__main__':
     dataset_train, dataset_test = data_preparation.get_datasets(dataset=hyperparams.dataset_name, size=hyperparams.size, img_format=hyperparams.img_format, img_type=hyperparams.img_type, 
                                 transform=transforms_img)
 
-    dataloader_train = DataLoader(dataset_train, batch_size=hyperparams.batch_size, shuffle=True, num_workers=0)#min(4, os.cpu_count()))
+    dataloader_train = DataLoader(dataset_train, batch_size=hyperparams.batch_size, shuffle=False, num_workers=0)#min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hyperparams.batch_size, shuffle=False, num_workers=0)#min(4, os.cpu_count()))
 
     if not '.pth' in hyperparams.model_name: hyperparams.model_name += '.pth'
@@ -92,7 +94,7 @@ if __name__ == '__main__':
     inference_dict = {}
     if not hyperparams.training_only: 
         inference_dict = inference(model, dataloader_test, hyperparams)
-        #inference_dict = inference(model, dataloader_train, hyperparams)
+        inference_dict = inference(model, dataloader_train, hyperparams)
 
     if not hyperparams.no_final_saving:
         param_dict['final'] = True

@@ -455,7 +455,7 @@ class KaggleDatasetImgOnlyV1(Dataset):
 
         self.img_format, self.img_type, self.transform, self.mode, self.size, self.seed = img_format, img_type, transform, mode, size, seed
 
-        self.image_path = Path('../sketchit/public/paintings')#Path(f'data/kaggle/{self.img_type}/test')
+        self.image_path = Path(f'data/kaggle/{self.img_type}') #Path('../sketchit/public/paintings')
         if mode == 'train': self.image_path = Path('/nfs/data/iart/kaggle/img')
 
         self.image_data = self._load_img_data() # sequential
@@ -523,7 +523,7 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
 
 # not tested
 class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
-    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='placeholder', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
         super().__init__(img_format, img_type, transform, mode, size, seed)
 
         self.sketch_format, self.sketch_type = sketch_format, sketch_type
