@@ -110,34 +110,33 @@ def get_sketch_gen_transform(type:str='train'):
 # model saver and loader
 
 # loads resnet50m state dicts or arbitrary models
-def load_model(name:str, dataset:str='Sketchy', max_seq_len=0, options=None) -> nn.Module:
+def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, options=None) -> nn.Module:
     path = Path("models/") / name
     loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
-        if dataset == 'LineDrawingsV1' or 'drawing' in name:
+        if model_type == 'DrawingGenerator' or dataset == 'LineDrawingsV1' or 'drawing' in name:
             print('Drawing model loaded')
             model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
             model.load_state_dict(loaded)
-        elif dataset == 'SketchyV1' or dataset == 'Sketchy':
+        elif model_type == 'ModifiedResNet' or dataset == 'SketchyV1' or dataset == 'Sketchy' or dataset == 'KaggleV1' or dataset == 'Kaggle':
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded)
-        elif dataset == 'SketchyV2':
+        elif model_type == 'ModifiedResNet_with_classification' and dataset == 'SketchyV2':
             print("Model with classification layer loaded")
             model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
-        elif dataset == 'VectorizedSketchyV1' or dataset == 'QuickdrawV1':
+        elif model_type == 'Photo2Sketch' or dataset == 'VectorizedSketchyV1' or dataset == 'QuickdrawV1':
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
-        elif dataset == 'KaggleV1' or dataset == 'Kaggle':
-            model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
-            model.load_state_dict(loaded)
-        elif dataset == 'KaggleV2':
+        elif model_type == 'ModifiedResNet_with_classification' and dataset == 'KaggleV2':
             model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=70, num_classes2=32) # styles, genres
             model.load_state_dict(loaded, strict=False)
+        else:
+            raise Exception(f"No model found with {model_type} and {dataset}")
 
     else:
         print("Model completely loaded from file")
