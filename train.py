@@ -23,6 +23,18 @@ def get_classified_loss(loss_fn, model, sketch, pos_img, neg_img, labels):
     n_logits, _ = model(neg_img)
     return loss_fn(s_logits, p_logits, n_logits, cs_logits, cp_logits, labels)
 
+def get_loss(loss_fn, model, elements):
+    s_logits = model(elements[0]) # sketch
+    p_logits = model(elements[1]) # pos image
+    n_logits = model(elements[2]) # neg image
+
+    if len(s_logits) == 1: # img
+        return loss_fn(s_logits, p_logits, n_logits)
+    elif len(s_logits) == 2: # img, class
+        return loss_fn(s_logits[0], p_logits[0], n_logits[0], s_logits[1], p_logits[1], elements[3])
+    elif len(s_logits) == 3: # img, class, class2
+        return loss_fn(s_logits[0], p_logits[0], n_logits[0], s_logits[1], p_logits[1], s_logits[2], p_logits[2], elements[3], elements[4])
+
 def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test_dataloader:DataLoader, loss_fn, optimizer, with_classification):
     start_time = timer()
 
@@ -37,6 +49,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         # training batch loop
         model.train()
         for batch, tuple in enumerate(train_dataloader):# removed tqdm enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
+            """
             if with_classification: sketch, pos_img, neg_img, labels = tuple
             else: sketch, pos_img, neg_img = tuple
 
@@ -48,6 +61,12 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
             else: 
                 s_logits, p_logits, n_logits = model(sketch), model(pos_img), model(neg_img)
                 loss = loss_fn(s_logits, p_logits, n_logits)
+            """
+            elements = list(tuple)
+            for i in range(len(elements)):
+                elements[i] = elements[i].to(device)
+
+            loss = get_loss(loss_fn, model, elements)
 
             optimizer.zero_grad()
             loss.backward()
@@ -60,6 +79,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         with torch.inference_mode():
 
             for batch, tuple in enumerate(test_dataloader): # removed tqdm
+                """
                 if with_classification: sketch, pos_img, neg_img, labels = tuple
                 else: sketch, pos_img, neg_img = tuple
 
@@ -71,8 +91,9 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
                 else: 
                     s_logits, p_logits, n_logits = model(sketch), model(pos_img), model(neg_img)
                     loss = loss_fn(s_logits, p_logits, n_logits)
-
                 test_loss += loss
+                """
+                test_loss += get_loss(loss_fn, model, elements)
 
         train_losses.append(train_loss.item() / len(train_dataloader))
         test_losses.append(test_loss.item() / len(test_dataloader))
@@ -94,7 +115,8 @@ parser.add_argument("-l", "--learning_rate", type=float, default=0.00001, help="
 parser.add_argument("-m", "--model", type=str, default='openResNet50m.pth', help="Choose a model - default:openResNet50m.pth")
 parser.add_argument("-d", "--dataset", type=str, default='SketchyV1', choices=['SketchyV1', 'SketchyV2', 'KaggleV1', 'KaggleV2'], help="Choose a dataset")
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
-parser.add_argument("--inference_only", action="store_true", help="If set extended inference will be executed after training")
+parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
+parser.add_argument("--no_training", action='store_true', help="If set not training will be done")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
 
@@ -132,18 +154,21 @@ test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_wo
 #optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)
 optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) # adam with lr 10^-5, wd 0.002, betas default as in sketchy original paper
 
-if with_classification: loss_fn = utils.triplet_euclidean_loss_with_classification
+if with_classification: 
+    if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification
+    elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification2
 else: loss_fn = utils.triplet_euclidean_loss
 
-param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE, "weight_decay": WEIGHT_DECAY, "optimizer": type(optimizer).__name__, "loss_fn": type(loss_fn).__name__}
+param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE, "weight_decay": WEIGHT_DECAY, "optimizer": type(optimizer).__name__,
+            "loss_fn": type(loss_fn).__name__, "loss_margin": loss_fn.margin, 'loss_weights': [loss_fn.classification_weight, loss_fn.classification_weight2]}
 data_dict = train_dataset.state_dict
 
 print(param_dict, flush=True)
 print(data_dict, flush=True)
 
-training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer, with_classification)
+if not args.no_training: training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer, with_classification)
 
-if args.inference_only: inference_dict = inference.run_inference(model, test_dataset)
+if args.inference: inference_dict = inference.run_inference(model, test_dataset)
 
 # save
 folder = utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)

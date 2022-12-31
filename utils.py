@@ -39,6 +39,7 @@ class TripletMarginLoss_with_classification(nn.Module):
     def __init__(self, margin, classification_weight=0.5):
         super().__init__()
         self.classification_weight = classification_weight
+        self.classification_weight2 = 0
 
         self.triplet_loss = nn.TripletMarginLoss(margin=margin)
         self.classification_loss = nn.CrossEntropyLoss()
@@ -66,6 +67,7 @@ MARGIN = 0.2 # Sketching without Worrying
 triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
+triplet_euclidean_loss_with_classification2 = TripletMarginLoss_with_classification2(margin=MARGIN)
 
 
 def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:float=100):

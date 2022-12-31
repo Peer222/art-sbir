@@ -106,7 +106,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     with torch.inference_mode():
         # because shuffle=False and batch_size = 1 i is the index of the sketch path in dataset
         for i, tuple in enumerate(tqdm(dataloader, desc="Inference")):
-            if with_classification: sketch_feature, _ = model(tuple[0].to(device)) # tuple[0] = sketch
+            if with_classification: sketch_feature = model(tuple[0].to(device))[0] # tuple[0] = sketch
             else: sketch_feature = model(tuple[0].to(device)) # tuple[0] = sketch
 
             rank = get_ranking_position(dataset.sketch_paths[i], inference_dataset.image_paths, sketch_feature, image_features)
@@ -148,5 +148,6 @@ if __name__ == "__main__":
     if not dataset: raise ValueError("no dataset found")
 
     inference_dict = run_inference(model, dataset, args.folder_name)
+    inference_dict['folder_name'] = args.folder_name
 
     folder = utils.save_model(model=model, data_dict=dataset.state_dict, inference_dict=inference_dict)
