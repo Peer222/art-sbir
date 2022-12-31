@@ -75,23 +75,7 @@ def compute_image_features(model, dataset, with_classification:bool) -> Tuple[Da
 
     return inference_dataset, image_features
 
-
-# dataset: test data, folder_name: if specified image_features will be loaded from file instead of computed
-def run_inference(model, dataset, folder_name:str=None) -> Dict:
-    start_time = timer()
-
-    with_classification = 'with_classification' in type(model).__name__
-    print(with_classification)
-
-    if folder_name:
-        image_paths, image_features = utils.load_image_features(folder_name)
-        inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
-        print("Image features loaded from file")
-    else:
-        inference_dataset, image_features = compute_image_features(model, dataset, with_classification)
-
-    dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=0, shuffle=False)
-
+def process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification):
     avg_rank = 0
     mean_reciprocal_rank = 0
     k = 10
@@ -127,6 +111,31 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     return {"avg_rank": avg_rank, "mean_reciprocal_rank": mean_reciprocal_rank, "topk_acc": list(topk_acc), "retrieval_samples": retrieval_samples, "size": len(inference_dataset), "inference_time": time}
 
+
+# dataset: test data, folder_name: if specified image_features will be loaded from file instead of computed
+def run_inference(model, dataset, folder_name:str=None) -> Dict:
+    start_time = timer()
+
+    with_classification = 'with_classification' in type(model).__name__
+
+    if folder_name:
+        image_paths, image_features = utils.load_image_features(folder_name)
+        inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
+        print("Image features loaded from file")
+    else:
+        inference_dataset, image_features = compute_image_features(model, dataset, with_classification)
+
+    dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=0, shuffle=False)
+
+    inference_dict = process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification)
+    inference_dict2 = {}
+    if 'Kaggle' in dataset.state_dict['dataset']:
+        _, dataset2 = data_preparation.get_datasets('KaggleInference', img_type='images', sketch_type='sketches', transform=dataset.transform)
+        dataloader2 = DataLoader(dataset=dataset2, batch_size=1, num_workers=0, shuffle=False)
+        inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification)
+    else: return inference_dict
+
+    return {'drawing_stats': inference_dict, 'sketch_stats': inference_dict2}
 
 if __name__ == "__main__":
     # command line tool to run inference only

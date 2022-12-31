@@ -460,6 +460,8 @@ class KaggleDatasetImgOnlyV1(Dataset):
 
         self.image_data = self._load_img_data() # sequential
 
+        self.photo_paths = list(self.image_data['filename']) # needed for compute_image_features in inference.py
+
         self.styles = self._get_classes('style')
         self.genres = self._get_classes('genre')
 
@@ -533,20 +535,20 @@ class KaggleDatasetImgOnlyV2(KaggleDatasetImgOnlyV1):
         pos_img, neg_img, style, genre = self.load_image_tuple(idx)
         return self.transform(pos_img), self.transform(neg_img), style, genre
 
-# not tested
+
 class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
     def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
         super().__init__(img_format, img_type, transform, mode, size, seed)
 
         self.sketch_format, self.sketch_type = sketch_format, sketch_type
 
-        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}/{self.mode}")
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}")
 
         self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
 
     def _load_sketch_paths(self) -> None:
-        for entry in self.image_data:
-            entry['sketchname'] = self.sketch_path / f"{entry['filename'].stem}.{self.sketch_format}"
+        for i in range(len(self.image_data)):
+            self.image_data.loc[i, 'sketchname'] = self.sketch_path / f"{self.image_data.loc[i, 'filename'].stem}.{self.sketch_format}"
 
     def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, Image.Image]: # sketch, pos_image, neg_image
         pos_img = self.image_data.iloc[idx]
@@ -567,24 +569,24 @@ class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
         return state_dict
     
 
-# not tested
+
 class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
     def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
         super().__init__(img_format, img_type, transform, mode, size, seed)
 
         self.sketch_format, self.sketch_type = sketch_format, sketch_type
 
-        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}/{self.mode}")
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}")
 
         self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
 
     def _load_sketch_paths(self) -> None:
-        for entry in self.image_data:
-            entry['sketchname'] = self.sketch_path / f"{entry['filename'].stem}.{self.sketch_format}"
+        for i in range(len(self.image_data)):
+            self.image_data.loc[i, 'sketchname'] = self.sketch_path / f"{self.image_data.loc[i, 'filename'].stem}.{self.sketch_format}"
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, int, int]:
         pos_img, neg_img, style_label, genre_label = super().load_image_tuple(idx)
-        sketch = Image.open(self.image_data[idx]['sketchname']).convert('RGB')
+        sketch = Image.open(self.image_data.loc[idx, 'sketchname']).convert('RGB')
         return sketch, pos_img, neg_img, style_label, genre_label
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
@@ -597,6 +599,28 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         state_dict['sketch_type'] = self.sketch_type
         state_dict['sketch_format']= self.sketch_format
         return state_dict
+
+class KaggleInferenceV1(Dataset):
+    def __init__(self, img_type='images', sketch_type='sketches', img_format='jpg', sketch_format='png', transform=transforms.ToTensor()) -> None:
+        super().__init__()
+
+        self.img_type, self.sketch_type, self.img_format, self.sketch_format, self.transform = img_type, sketch_type, img_format, sketch_format, transform
+
+        self.sketch_paths = self.__load_sketch_paths()
+
+    def __load_sketch_paths(self):
+        pass #TODO
+
+    def __len__(self):
+        return len(self.sketch_paths)
+
+    def __getitem__(self, idx):
+        return self.transform(Image.open(self.sketch_paths[idx]))
+
+    @property
+    def state_dict(self):
+        return {"dataset": f"{self.__class__.__name__}", "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format,
+                "transform": str(self.transform)}
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
@@ -629,6 +653,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
+    elif dataset == 'KaggleInferenceV1':
+        train_dataset = None
+        test_dataset = KaggleInferenceV1()
     else:
         raise Exception(f"{dataset} is not available")
 

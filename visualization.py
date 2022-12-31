@@ -198,9 +198,15 @@ def add_frame(plt, space=0, linewidth=0.4, color=Color.BLACK):
 
 def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=None):
     show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
-    show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
-    show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')
-    show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
+    if len(inference_dict.keys()) != 2:
+        show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
+        show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')
+        show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
+    else:
+        show_topk_accuracy(inference_dict['drawing_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_drawings')
+        show_topk_accuracy(inference_dict['sketch_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_sketches')
+        show_retrieval_samples(inference_dict['drawing_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_drawings')
+        show_retrieval_samples(inference_dict['sketch_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_sketches')
 
 
 

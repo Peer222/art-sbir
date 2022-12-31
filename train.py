@@ -49,19 +49,6 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         # training batch loop
         model.train()
         for batch, tuple in enumerate(train_dataloader):# removed tqdm enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
-            """
-            if with_classification: sketch, pos_img, neg_img, labels = tuple
-            else: sketch, pos_img, neg_img = tuple
-
-            sketch, pos_img, neg_img = sketch.to(device), pos_img.to(device), neg_img.to(device)
-
-            if with_classification:
-                labels = labels.to(device)
-                loss = get_classified_loss(loss_fn, model, sketch, pos_img, neg_img, labels)
-            else: 
-                s_logits, p_logits, n_logits = model(sketch), model(pos_img), model(neg_img)
-                loss = loss_fn(s_logits, p_logits, n_logits)
-            """
             elements = list(tuple)
             for i in range(len(elements)):
                 elements[i] = elements[i].to(device)
@@ -79,20 +66,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
         with torch.inference_mode():
 
             for batch, tuple in enumerate(test_dataloader): # removed tqdm
-                """
-                if with_classification: sketch, pos_img, neg_img, labels = tuple
-                else: sketch, pos_img, neg_img = tuple
 
-                sketch, pos_img, neg_img = sketch.to(device), pos_img.to(device), neg_img.to(device)
-
-                if with_classification:
-                    labels = labels.to(device)
-                    loss = get_classified_loss(loss_fn, model, sketch, pos_img, neg_img, labels)
-                else: 
-                    s_logits, p_logits, n_logits = model(sketch), model(pos_img), model(neg_img)
-                    loss = loss_fn(s_logits, p_logits, n_logits)
-                test_loss += loss
-                """
                 test_loss += get_loss(loss_fn, model, elements)
 
         train_losses.append(train_loss.item() / len(train_dataloader))
@@ -119,6 +93,7 @@ parser.add_argument("--inference", action="store_true", help="If set extended in
 parser.add_argument("--no_training", action='store_true', help="If set not training will be done")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
+parser.add_argument('--sketch_type', type=str, default='sketches_png', choices=['sketches_png', 'contour_drawings'])
 
 args = parser.parse_args()
 
@@ -146,7 +121,7 @@ if 'drawings' in args.img_type: img_format = 'png'
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, img_type=args.img_type, img_format=img_format, transform=model.transform)
+train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, sketch_type=args.sketch_type, img_type=args.img_type, img_format=img_format, transform=model.transform)
 
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
@@ -160,7 +135,10 @@ if with_classification:
 else: loss_fn = utils.triplet_euclidean_loss
 
 param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE, "weight_decay": WEIGHT_DECAY, "optimizer": type(optimizer).__name__,
-            "loss_fn": type(loss_fn).__name__, "loss_margin": loss_fn.margin, 'loss_weights': [loss_fn.classification_weight, loss_fn.classification_weight2]}
+            "loss_fn": type(loss_fn).__name__, "loss_margin": utils.MARGIN}
+if with_classification:
+    param_dict['loss_weights'] = [loss_fn.classification_weight, loss_fn.classification_weight2]
+
 data_dict = train_dataset.state_dict
 
 print(param_dict, flush=True)
