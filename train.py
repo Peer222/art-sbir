@@ -91,7 +91,8 @@ parser.add_argument('--model_type', type=str, default='ModifiedResNet_with_class
 parser.add_argument("-d", "--dataset", type=str, default='SketchyV1', choices=['SketchyV1', 'SketchyV2', 'KaggleV1', 'KaggleV2'], help="Choose a dataset")
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
 parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
-parser.add_argument("--no_training", action='store_true', help="If set not training will be done")
+parser.add_argument('--feature_folder', default=None, help="If None image features will be computed for inference otherwise loaded from data/image_features/[feature_folder]")
+parser.add_argument("--no_training", action='store_true', help="If set no training will be executed")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
 parser.add_argument('--sketch_type', type=str, default='sketches_png', choices=['sketches_png', 'contour_drawings'])
@@ -147,7 +148,7 @@ print(data_dict, flush=True)
 
 if not args.no_training: training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer, with_classification)
 
-if args.inference: inference_dict = inference.run_inference(model, test_dataset)
+if args.inference: inference_dict = inference.run_inference(model, test_dataset, args.feature_folder)
 
 # saves model and/or dictionaries
 folder = utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)

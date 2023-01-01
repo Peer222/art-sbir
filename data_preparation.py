@@ -546,6 +546,8 @@ class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
 
         self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
 
+        self.sketch_paths = list(self.image_data['sketchname'])
+
     def _load_sketch_paths(self) -> None:
         for i in range(len(self.image_data)):
             self.image_data.loc[i, 'sketchname'] = self.sketch_path / f"{self.image_data.loc[i, 'filename'].stem}.{self.sketch_format}"
@@ -579,6 +581,8 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         self.sketch_path = Path(f"data/kaggle/{self.sketch_type}")
 
         self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
+
+        self.sketch_paths = list(self.image_data['sketchname'])
 
     def _load_sketch_paths(self) -> None:
         for i in range(len(self.image_data)):
@@ -622,7 +626,7 @@ class KaggleInferenceDatasetV1(Dataset):
         return len(self.sketch_paths)
 
     def __getitem__(self, idx):
-        return self.transform(Image.open(self.sketch_paths[idx]))
+        return [ self.transform(Image.open(self.sketch_paths[idx])) ]
 
     @property
     def state_dict(self):
@@ -695,6 +699,9 @@ if __name__ == '__main__':
     #print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset.vectorized_sketches))
     #print(len(dataset2), len(dataset2.sketch_paths), len(dataset2.photo_paths), len(dataset2.vectorized_sketches))
     #print(len(dataset3), len(dataset3.sketch_paths), len(dataset3.photo_paths), len(dataset3.vectorized_sketches))
-    dataset = KaggleInferenceDatasetV1()
-    print(dataset.__getitem__(0))
+    #dataset = KaggleInferenceDatasetV1()
+    #print(dataset.__getitem__(0))
+    #print(len(dataset))
 
+    dataset = KaggleDatasetV2()
+    print(dataset.sketch_paths[0])

@@ -27,7 +27,7 @@ def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch
     if type(sketch_path) == str: sketch_path = Path(sketch_path)
 
     sketch_name = re.split('-', sketch_path.stem)
-    if len(sketch_name) == 2: sketch_name = sketch_name[0] # sketchy sketch names have format id-number.png
+    if len(sketch_name) <= 2: sketch_name = sketch_name[0] # sketchy sketch names have format id-number.png | kaggle sketch names id.png
     elif len(sketch_name) == 3: sketch_name = sketch_name[1] # sketchit sketch names have format index-id-random_number.png
     pos_img_index = utils.find_image_index(image_paths, sketch_name)
     if pos_img_index < 0:
@@ -66,7 +66,7 @@ def compute_image_features(model, dataset, with_classification:bool) -> Tuple[Da
 
     model.eval()
     with torch.inference_mode():
-        for images in tqdm(dataloader):
+        for images in tqdm(dataloader, desc="Computing Image Features"):
             images = images.to(device)
             if with_classification: image_features = torch.cat(( image_features, model(images)[0].squeeze() ))
             else: image_features = torch.cat(( image_features, model(images).squeeze() ))
@@ -84,7 +84,7 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
     topk_acc = np.zeros(k)
 
     retrieval_samples = []
-    random_indices = [random.randrange(0, len(dataset)) for _ in range(5)]
+    random_indices = [random.randrange(0, len(dataset)) for _ in range(10)]
 
     image_features = image_features.to(device)
     model.to(device)
@@ -132,7 +132,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     inference_dict = process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification)
     inference_dict2 = {}
     if 'Kaggle' in dataset.state_dict['dataset']:
-        _, dataset2 = data_preparation.get_datasets('KaggleInference', sketch_type='sketches', transform=dataset.transform)
+        _, dataset2 = data_preparation.get_datasets('KaggleInferenceV1', sketch_type='sketches', transform=dataset.transform)
         dataloader2 = DataLoader(dataset=dataset2, batch_size=1, num_workers=0, shuffle=False)
         inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification)
     else: return inference_dict

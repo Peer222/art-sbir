@@ -30,6 +30,7 @@ if not visual_path.is_dir():
 
 #plots figure or saves figure if filepath is specified
 def plot(plt, file: Path=None) -> None:
+    plt.tight_layout()
     if not file:
         plt.show()
     else:
@@ -106,7 +107,7 @@ def build_all_loss_curves(train_losses:Dict, test_losses:Dict, result_path:Path,
 
 
 
-def show_topk_accuracy(topk_acc:List[float], filename:Path=None) -> None:
+def show_topk_accuracy(topk_acc:List[float], filename:Path=None, title:str=None) -> None:
     labels = [f"top_{k}" for k in range(1, 11)]
 
     topk_acc = [x * 100 for x in topk_acc]
@@ -114,7 +115,8 @@ def show_topk_accuracy(topk_acc:List[float], filename:Path=None) -> None:
     fig, ax = plt.subplots(figsize=(9,5))
     ax.bar(labels, topk_acc, color=Color.BLUE)
 
-    plt.title("Top_k accuracy")
+    if title: plt.title(title)
+    else: plt.title("Top_k accuracy")
     plt.ylabel("Accuracy (%)")
     plt.xlabel("Top_k positions")
 
@@ -126,56 +128,44 @@ def show_topk_accuracy(topk_acc:List[float], filename:Path=None) -> None:
     plot(plt, filename)
 
 # show original has to be implemented
-def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:bool=False, filename:Path=None) -> None:
+def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:bool=False, filename:Path=None, title:str=None) -> None:
     rows, cols = len(samples), 11
+    
+    heights = [1 for i in range(rows + 1)]
+    heights[0] = 0
+    fig, axes = plt.subplots(nrows=rows + 1, ncols=cols, figsize=(cols, rows), gridspec_kw={'height_ratios': heights})
 
-    fig = plt.figure(figsize=(cols - 1, rows))
-
-    for i in range(rows):
-        sketch_path = list(samples[i].keys())[0]
-        image_paths = samples[i][sketch_path]
+    for i, axes_rows in enumerate(axes):
+        if not i: continue
+        sketch_path = list(samples[i - 1].keys())[0]
+        image_paths = samples[i - 1][sketch_path]
         sketch_path = Path(sketch_path)
 
-        sketch = Image.open(sketch_path)
-        fig.add_subplot(rows, cols, i * cols + 1)
-        plt.axis(False)
-        
-        plt.imshow(sketch)
-
-        add_frame(plt)
-
-        if not i:
-            plt.title('Query', fontsize=8, y=1.1)
-
-        for j in range(len(image_paths)):
-            image_path = image_paths[j][0]
-
-            if show_original:
-                if 'photos' in image_path: return
-                image_path = image_path.replace('anime_drawings', 'photos') # works only for sketchy !!!
-                image_path = image_path.replace('contour_drawings', 'photos')
-                image_path = image_path.replace('png', 'jpg') # original photos must have jpg format eventually incompatible with other datasets !!!
-
-            image_path = Path(image_path)
-
-            image = Image.open(image_path)
-
-            if image_path.stem in sketch_path.stem:
-                fig.add_subplot(rows, cols, i * cols + j + 2, facecolor=Color.GREEN)
+        for j, ax in enumerate(axes_rows):
+            if not j:
+                sketch = Image.open(sketch_path)
+                ax.axis(False)
+                ax.imshow(sketch)
+                add_frame(ax)
             else:
-                fig.add_subplot(rows, cols, i * cols + j + 2)
-            plt.axis(False)
+                image_path = Path(image_paths[j - 1][0])
+                image = Image.open(image_path)
 
-            plt.imshow(image)
+                ax.axis(False)
+                ax.imshow(image)
             
-            if image_path.stem in sketch_path.stem:
-                add_frame(plt, space=30, linewidth=1.2, color=Color.GREEN)
+                if image_path.stem in sketch_path.stem:
+                    add_frame(ax, space=30, linewidth=1.2, color=Color.GREEN)
 
-            if not i:
-                plt.title(str(j + 1), fontsize=8, y=1.1)
-    
-    #y pos may has to be adjusted
-    plt.suptitle("Retrieval samples", y=1 - rows * 0.008)
+
+    col_titles = ['Query', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    for ax, col_title in zip(axes[0], col_titles):
+        ax.axis(False)
+        ax.set_title(col_title, fontdict={'fontsize':9}, y=1.1)
+
+    if title: plt.suptitle(title)
+    else: plt.suptitle("Retrieval samples")
+
     plot(plt, filename)
 
 
@@ -187,9 +177,10 @@ def load_file(file_path:Path):
             print(file_path.suffix)
 
 # adds frame around current plot (has to be called after plot is added)
-def add_frame(plt, space=0, linewidth=0.4, color=Color.BLACK):
-    ax = plt.gca()
-    autoAxis = plt.axis()
+def add_frame(ax, space=0, linewidth=0.4, color=Color.BLACK):
+    if not 'AxesSubplot' in str(type(ax)): ax = ax.gca()
+    autoAxis = ax.axis()
+    
     rec = patches.Rectangle( (autoAxis[0]- space/2, autoAxis[2] + space/2), (autoAxis[1] - autoAxis[0]) + space, (autoAxis[3]-autoAxis[2]) - space, 
                             fill=False, lw=linewidth, color=color)
     rec = ax.add_patch(rec)
@@ -197,55 +188,17 @@ def add_frame(plt, space=0, linewidth=0.4, color=Color.BLACK):
 
 
 def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=None):
-    show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
-    if len(inference_dict.keys()) != 2: # kaggle inference on drawings and sketches
+    if training_dict: show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
+    if len(inference_dict.keys()) > 2: # kaggle inference on drawings and sketches
         show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
         show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')
         show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
-    else:
-        show_topk_accuracy(inference_dict['drawing_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_drawings')
-        show_topk_accuracy(inference_dict['sketch_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_sketches')
-        show_retrieval_samples(inference_dict['drawing_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_drawings')
-        show_retrieval_samples(inference_dict['sketch_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_sketches')
+    elif len(inference_dict.keys()) == 2:
+        show_topk_accuracy(inference_dict['drawing_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_drawings', title="Top_k accuracy (Drawings)")
+        show_topk_accuracy(inference_dict['sketch_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_sketches', title="Top_k accuracy (Sketches)")
+        show_retrieval_samples(inference_dict['drawing_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_drawings', title="Retrieval samples (Drawings)")
+        show_retrieval_samples(inference_dict['sketch_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_sketches', title="Retrieval samples (Sketches)")
 
-
-
-"""
-def plot_transformed_images(image_paths, transform, n=3, seed=42):
-    Plots a series of random images from image_paths.
-
-    Will open n image paths from image_paths, transform them
-    with transform and plot them side by side.
-
-    Args:
-        image_paths (list): List of target image paths. 
-        transform (PyTorch Transforms): Transforms to apply to images.
-        n (int, optional): Number of images to plot. Defaults to 3.
-        seed (int, optional): Random seed for the random generator. Defaults to 42.
-    
-    random.seed(seed)
-    random_image_paths = random.sample(image_paths, k=n)
-    for image_path in random_image_paths:
-        with Image.open(image_path) as f:
-            fig, ax = plt.subplots(1, 2)
-            ax[0].imshow(f) 
-            ax[0].set_title(f"Original \nSize: {f.size}")
-            ax[0].axis("off")
-
-            # Transform and plot image
-            # Note: permute() will change shape of image to suit matplotlib 
-            # (PyTorch default is [C, H, W] but Matplotlib is [H, W, C])
-            transformed_image = transform(f).permute(1, 2, 0) 
-            ax[1].imshow(transformed_image) 
-            ax[1].set_title(f"Transformed \nSize: {transformed_image.shape}")
-            ax[1].axis("off")
-
-            fig.suptitle(f"Class: {image_path.parent.stem}", fontsize=16)
-
-plot_transformed_images(image_path_list, 
-                        transform=data_transform, 
-                        n=3)
-"""
 
 if __name__ == '__main__':
     show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
