@@ -26,7 +26,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor) -> int:
     if type(sketch_path) == str: sketch_path = Path(sketch_path)
 
-    sketch_name = re.split('-', sketch_path.stem)[0]
+    sketch_name = re.split('-', sketch_path.stem)
+    if len(sketch_name) == 2: sketch_name = sketch_name[0] # sketchy sketch names have format id-number.png
+    elif len(sketch_name) == 3: sketch_name = sketch_name[1] # sketchit sketch names have format index-id-random_number.png
     pos_img_index = utils.find_image_index(image_paths, sketch_name)
     if pos_img_index < 0:
         print(f"No image found: {sketch_path} | {sketch_name}")
@@ -130,7 +132,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     inference_dict = process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification)
     inference_dict2 = {}
     if 'Kaggle' in dataset.state_dict['dataset']:
-        _, dataset2 = data_preparation.get_datasets('KaggleInference', img_type='images', sketch_type='sketches', transform=dataset.transform)
+        _, dataset2 = data_preparation.get_datasets('KaggleInference', sketch_type='sketches', transform=dataset.transform)
         dataloader2 = DataLoader(dataset=dataset2, batch_size=1, num_workers=0, shuffle=False)
         inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification)
     else: return inference_dict

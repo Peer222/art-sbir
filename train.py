@@ -149,7 +149,7 @@ if not args.no_training: training_dict = triplet_train(model, EPOCHS, train_data
 
 if args.inference: inference_dict = inference.run_inference(model, test_dataset)
 
-# save
+# saves model and/or dictionaries
 folder = utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)
 
 # saves visualizations in result folder

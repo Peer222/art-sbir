@@ -600,16 +600,23 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         state_dict['sketch_format']= self.sketch_format
         return state_dict
 
-class KaggleInferenceV1(Dataset):
-    def __init__(self, img_type='images', sketch_type='sketches', img_format='jpg', sketch_format='png', transform=transforms.ToTensor()) -> None:
+
+class KaggleInferenceDatasetV1(Dataset):
+    # provides sketches from sketchit for inference
+    def __init__(self, sketch_type='sketches', sketch_format='png', transform=transforms.ToTensor()) -> None:
         super().__init__()
 
-        self.img_type, self.sketch_type, self.img_format, self.sketch_format, self.transform = img_type, sketch_type, img_format, sketch_format, transform
+        self.path = Path('data/kaggle')
+
+        self.sketch_type, self.sketch_format, self.transform = sketch_type, sketch_format, transform
 
         self.sketch_paths = self.__load_sketch_paths()
 
     def __load_sketch_paths(self):
-        pass #TODO
+        data = pd.read_csv(self.path / "categorized_sketches.csv")
+        data = data[data['valid'] == 1]
+        data['sketch_paths'] = self.path / self.sketch_type / data['sketch']
+        return list(data['sketch_paths'])
 
     def __len__(self):
         return len(self.sketch_paths)
@@ -619,8 +626,8 @@ class KaggleInferenceV1(Dataset):
 
     @property
     def state_dict(self):
-        return {"dataset": f"{self.__class__.__name__}", "img_number": len(self), "img_type": self.img_type, "img_format": self.img_format,
-                "transform": str(self.transform)}
+        return {"dataset": f"{self.__class__.__name__}", "img_number": len(self), "sketch_type": self.sketch_type, "sketch_format": self.sketch_format,
+                "transform": str(self.transform), "date": "31.12.2022"}
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
@@ -655,7 +662,7 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
     elif dataset == 'KaggleInferenceV1':
         train_dataset = None
-        test_dataset = KaggleInferenceV1()
+        test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
     else:
         raise Exception(f"{dataset} is not available")
 
@@ -680,7 +687,7 @@ if __name__ == '__main__':
     #item = utils.convert_pix2pix_to_255(item)
     #visualization.show_triplets([[item['A'], item['A'], item['B']]], './test2.png', mode='image')
 
-    dataset = KaggleDatasetImgOnlyV1(mode='test', size=1.0)
+    #dataset = KaggleDatasetImgOnlyV1(mode='test', size=1.0)
 
     #dataset = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform())
 
@@ -688,5 +695,6 @@ if __name__ == '__main__':
     #print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset.vectorized_sketches))
     #print(len(dataset2), len(dataset2.sketch_paths), len(dataset2.photo_paths), len(dataset2.vectorized_sketches))
     #print(len(dataset3), len(dataset3.sketch_paths), len(dataset3.photo_paths), len(dataset3.vectorized_sketches))
-    print(dataset.__getitem__(5322))
+    dataset = KaggleInferenceDatasetV1()
+    print(dataset.__getitem__(0))
 
