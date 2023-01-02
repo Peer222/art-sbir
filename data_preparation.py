@@ -150,6 +150,7 @@ class SketchyDatasetV1(RetrievalDataset):
 
     # photo paths will be duplicated so that there are a equal number of sketch/photo pairs
     def _load_paths(self) -> None:
+        """ # contains fewer sketches (older experiments ran on latter version)
         data = pd.read_csv(self.path / 'info' / 'stats.csv')
         if self.sketch_format == 'svg' and not 'svg_available' in data.columns: data = self.__mark_missing_svgs(data) # not all sketches are available as svgs
         for i, row in data.iterrows():
@@ -163,6 +164,14 @@ class SketchyDatasetV1(RetrievalDataset):
 
                 self.photo_paths.append(self.path / self.img_type / category / img_name)
                 self.sketch_paths.append(self.path / f"sketches_{self.sketch_format}" / category / f"{row['ImageNetID']}-{row['SketchID']}.{self.sketch_format}")
+        """
+        for cls in self.classes:
+            self.sketch_paths += list( (self.path / ("sketches_" + self.sketch_format)).glob(f"{cls}/*.{self.sketch_format}") )
+
+        for path in self.sketch_paths:
+            filename = re.search('n\d+_\d+', path.name).group() + '.' + self.img_format
+            photo_path = self.path / self.img_type / path.parent.name / filename 
+            self.photo_paths.append(Path(photo_path))
 
     # adds svg_available column and updates info/stats.csv
     def __mark_missing_svgs(self, data):
@@ -760,9 +769,14 @@ if __name__ == '__main__':
 
     #dataset = KaggleDatasetV2()
     #print(dataset.sketch_paths[0])
-
+    """
     dataset = AugmentedKaggleDatasetV2()
     image = Image.open('test.png')
     for i in range(10):
         augmented_img = dataset.sketch_transform(image)
         augmented_img.save(f'../transformations/transformed4_img_{i}.png')
+    """
+
+    dataset = SketchyDatasetV1(size=1.0, mode='test')
+    dataset2 = InferenceDataset(dataset.photo_paths)
+    print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset2))
