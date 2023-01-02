@@ -120,6 +120,8 @@ def show_topk_accuracy(topk_acc:List[float], filename:Path=None, title:str=None)
     plt.ylabel("Accuracy (%)")
     plt.xlabel("Top_k positions")
 
+    plt.ylim([0, 100])
+
     ax.grid(True, color=Color.LIGHT_GREY)
     ax.tick_params(direction="in", length=0)
     ax.set_axisbelow(True)

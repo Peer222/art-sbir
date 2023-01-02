@@ -123,7 +123,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
             model.load_state_dict(loaded)
         elif model_type == 'ModifiedResNet' or dataset == 'SketchyV1' or dataset == 'Sketchy' or dataset == 'KaggleV1' or dataset == 'Kaggle':
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
-            model.load_state_dict(loaded)
+            model.load_state_dict(loaded, strict=False)
         elif model_type == 'ModifiedResNet_with_classification' and dataset == 'SketchyV2':
             print("Model with classification layer loaded")
             model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024)

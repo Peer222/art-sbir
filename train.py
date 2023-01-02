@@ -29,7 +29,7 @@ def get_loss(loss_fn, model, elements):
     p_logits = model(elements[1]) # pos image
     n_logits = model(elements[2]) # neg image
 
-    if len(s_logits) == 1: # img
+    if len(s_logits) > 3: # img
         return loss_fn(s_logits, p_logits, n_logits)
     elif len(s_logits) == 2: # img, class
         return loss_fn(s_logits[0], p_logits[0], n_logits[0], s_logits[1], p_logits[1], elements[3])
@@ -112,8 +112,6 @@ model = utils.load_model(MODEL, dataset=DATASET, model_type=args.model_type)
 model.freeze_layers()
 model.to(device)
 
-with_classification = 'with_classification' in type(model).__name__
-
 inference_dict = {}
 training_dict = {}
 param_dict = {}
@@ -132,6 +130,9 @@ test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_wo
 #optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)
 optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) # adam with lr 10^-5, wd 0.002, betas default as in sketchy original paper
 
+
+with_classification = 'with_classification' in type(model).__name__ and 'V2' in train_dataset.state_dict['dataset']
+print("with classification: ", with_classification)
 if with_classification: 
     if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification
     elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification2

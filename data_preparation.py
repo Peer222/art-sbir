@@ -554,10 +554,10 @@ class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
 
     def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, Image.Image]: # sketch, pos_image, neg_image
         pos_img = self.image_data.iloc[idx]
-        neg_img = random.choice(self.image_data)
+        neg_img = random.choice(self.image_data['filename'])
         sketch = Image.open(pos_img['sketchname']).convert('RGB')
 
-        return Image.open(sketch), Image.open(pos_img['filename']).convert('RGB'), Image.open(neg_img).convert('RGB')
+        return sketch, Image.open(pos_img['filename']).convert('RGB'), Image.open(neg_img).convert('RGB')
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: # sketch pos_image, neg_image
         sketch, pos_img, neg_img = self.load_image_tuple(idx)
