@@ -588,10 +588,10 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         for i in range(len(self.image_data)):
             self.image_data.loc[i, 'sketchname'] = self.sketch_path / f"{self.image_data.loc[i, 'filename'].stem}.{self.sketch_format}"
 
-    def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, int, int]:
+    def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         pos_img, neg_img, style_label, genre_label = super().load_image_tuple(idx)
         sketch = Image.open(self.image_data.loc[idx, 'sketchname']).convert('RGB')
-        return sketch, pos_img, neg_img, style_label, genre_label
+        return [sketch, pos_img, neg_img, style_label, genre_label]
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
         sketch, pos_img, neg_img, style, genre = self.load_image_tuple(idx)
@@ -602,6 +602,57 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         state_dict = super().state_dict
         state_dict['sketch_type'] = self.sketch_type
         state_dict['sketch_format']= self.sketch_format
+        return state_dict
+
+class AugmentedKaggleDatasetV2(KaggleDatasetV2):
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+        super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
+
+        self.transform = transforms.Compose([
+            transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
+            #transforms.CenterCrop(size=(224, 224)),
+            transforms.Lambda(lambda img : img.convert('RGB')),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
+        ])
+
+        self.sketch_transform = transforms.Compose([
+            transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
+            transforms.Lambda(lambda img : img.convert('RGB')),
+
+            transforms.RandomApply(p=0.5, transforms=[
+                transforms.RandomPerspective(distortion_scale=0.3, p=1.0, fill=255),
+                transforms.RandomAffine(degrees=0, scale=(1.05, 1.3), fill=255),
+            ]),
+            transforms.RandomApply(p=0.5, transforms=[
+                transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=(-7, 7, -7, 7), fill=255)
+            ]),
+
+            transforms.ToTensor(),
+            transforms.RandomErasing(p=0.5, scale=(0.05, 0.2), value=1.0),
+            #transforms.ToPILImage()
+            transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
+        ])
+
+    def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
+        item = list(super().load_image_tuple(idx))
+        if self.mode == 'train' and random.random() > 0.5:
+            item[0] = item[0].transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
+            item[1] = item[1].transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
+            item[2] = transforms.RandomHorizontalFlip(p=0.5)(item[2])
+        return item
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
+        sketch, pos_img, neg_img, style, genre = self.load_image_tuple(idx)
+        pos_img, neg_img = self.transform(pos_img), self.transform(neg_img)
+        if self.mode == 'train': sketch = self.sketch_transform(sketch)
+        else: sketch = self.transform(sketch)
+        return sketch, pos_img, neg_img, style, genre
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['sketch_transform'] = str(self.sketch_transform) + " + paired random horizontal flip"
         return state_dict
 
 
@@ -661,12 +712,16 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'KaggleV2':
         train_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
         test_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
-    elif dataset == 'QuickdrawV1':
-        train_dataset = QuickDrawDatasetV1(mode='train', size=size)
-        test_dataset = QuickDrawDatasetV1(mode='test', size=size)
+    elif dataset == 'AugmentedKaggleV2':
+        train_dataset = AugmentedKaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
+        test_dataset = AugmentedKaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
     elif dataset == 'KaggleInferenceV1':
         train_dataset = None
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
+
+    elif dataset == 'QuickdrawV1':
+        train_dataset = QuickDrawDatasetV1(mode='train', size=size)
+        test_dataset = QuickDrawDatasetV1(mode='test', size=size)
     else:
         raise Exception(f"{dataset} is not available")
 
@@ -674,8 +729,8 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
 
 
 if __name__ == '__main__':
-    print('Start generating vectors')
-    dataset = VectorizedSketchyDatasetV1(size=0.01, img_type='sketches_svg', img_format='svg', transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
+    #print('Start generating vectors')
+    #dataset = VectorizedSketchyDatasetV1(size=0.01, img_type='sketches_svg', img_format='svg', transform=utils.get_sketch_gen_transform(), only_valid=False) # locally 0.01 size
     #dataset2 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=0, only_valid=False)
     #dataset3 = VectorizedSketchyDatasetV1(size=0.01, transform=utils.get_sketch_gen_transform(), max_erase_count=3, only_valid=True)
     #dataset = KaggleDatasetImgOnlyV1(size=1, mode='test')
@@ -703,5 +758,11 @@ if __name__ == '__main__':
     #print(dataset.__getitem__(0))
     #print(len(dataset))
 
-    dataset = KaggleDatasetV2()
-    print(dataset.sketch_paths[0])
+    #dataset = KaggleDatasetV2()
+    #print(dataset.sketch_paths[0])
+
+    dataset = AugmentedKaggleDatasetV2()
+    image = Image.open('test.png')
+    for i in range(10):
+        augmented_img = dataset.sketch_transform(image)
+        augmented_img.save(f'../transformations/transformed4_img_{i}.png')

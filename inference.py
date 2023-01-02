@@ -105,9 +105,9 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
             if random_indices.count(i) > 0:
                 retrieval_samples.append({str(dataset.sketch_paths[i]): get_topk_images(k, inference_dataset.image_paths, sketch_feature, image_features)})
 
-    avg_rank /= len(inference_dataset)
-    mean_reciprocal_rank /= len(inference_dataset)
-    topk_acc /= len(inference_dataset)
+    avg_rank /= len(dataset)
+    mean_reciprocal_rank /= len(dataset)
+    topk_acc /= len(dataset)
 
     time = timer() - start_time
 

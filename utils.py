@@ -132,7 +132,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
-        elif model_type == 'ModifiedResNet_with_classification' and dataset == 'KaggleV2':
+        elif model_type == 'ModifiedResNet_with_classification' and (dataset == 'KaggleV2' or dataset == 'AugmentedKaggleV2'):
             # fails if sketchy pretrained model with classifier-125 is loaded
             try:
                 model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=70, num_classes2=32) # styles, genres
