@@ -133,8 +133,16 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
         elif model_type == 'ModifiedResNet_with_classification' and dataset == 'KaggleV2':
-            model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=70, num_classes2=32) # styles, genres
-            model.load_state_dict(loaded, strict=False)
+            # fails if sketchy pretrained model with classifier-125 is loaded
+            try:
+                model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=70, num_classes2=32) # styles, genres
+                model.load_state_dict(loaded, strict=False)
+                print("Normally loaded from state dict")
+            except:
+                model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=125, num_classes2=32) # styles, genres
+                model.load_state_dict(loaded, strict=False)
+                model.classifier = nn.Linear(1024, 70)
+                print("Normal load failed - Firstly loaded classifier-125 changed to classifier-70")
         else:
             raise Exception(f"No model found with {model_type} and {dataset}")
 

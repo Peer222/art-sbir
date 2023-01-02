@@ -161,7 +161,7 @@ def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:
     col_titles = ['Query', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
     for ax, col_title in zip(axes[0], col_titles):
         ax.axis(False)
-        ax.set_title(col_title, fontdict={'fontsize':9}, y=1.1)
+        ax.set_title(col_title, fontdict={'fontsize':10})
 
     if title: plt.suptitle(title)
     else: plt.suptitle("Retrieval samples")
@@ -180,7 +180,7 @@ def load_file(file_path:Path):
 def add_frame(ax, space=0, linewidth=0.4, color=Color.BLACK):
     if not 'AxesSubplot' in str(type(ax)): ax = ax.gca()
     autoAxis = ax.axis()
-    
+
     rec = patches.Rectangle( (autoAxis[0]- space/2, autoAxis[2] + space/2), (autoAxis[1] - autoAxis[0]) + space, (autoAxis[3]-autoAxis[2]) - space, 
                             fill=False, lw=linewidth, color=color)
     rec = ax.add_patch(rec)

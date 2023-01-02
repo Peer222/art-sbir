@@ -2,6 +2,7 @@ from timeit import default_timer as timer
 from tqdm.auto import tqdm
 import argparse
 from pathlib import Path
+import os
 
 import torch
 from torch import nn
@@ -125,8 +126,8 @@ if 'drawings' in args.img_type: img_format = 'png'
 # options have to be added
 train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, sketch_type=args.sketch_type, img_type=args.img_type, img_format=img_format, transform=model.transform)
 
-train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True) #num_workers = os.cpu_count()
-test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False) #num_workers = os.cpu_count()
+train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=True)
+test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=False)
 
 #optimizer = torch.optim.SGD(params=model.parameters(), lr=LEARNING_RATE) # adam used by clip (hyper params in paper)
 optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) # adam with lr 10^-5, wd 0.002, betas default as in sketchy original paper
