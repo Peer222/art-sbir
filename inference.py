@@ -131,7 +131,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     inference_dict = process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification)
     inference_dict2 = {}
-    if 'Kaggle' in dataset.state_dict['dataset']:
+    if 'Kaggle' in dataset.state_dict['dataset'] or 'Mixed' in dataset.state_dict['dataset']:
         _, dataset2 = data_preparation.get_datasets('KaggleInferenceV1', sketch_type='sketches', transform=dataset.transform)
         dataloader2 = DataLoader(dataset=dataset2, batch_size=1, num_workers=0, shuffle=False)
         inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification)

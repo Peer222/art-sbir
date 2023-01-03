@@ -115,13 +115,15 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
     loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
 
+    datasetsV1 = [ 'SketchyV1', 'Sketchy', 'KaggleV1',  'Kaggle', 'AugmentedKaggleV1',  'MixedDatasetV1',  'MixedDatasetV2'] # MixedDatasetV2 because only negative image selection is used (no labels)
+
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
         if model_type == 'DrawingGenerator' or dataset == 'LineDrawingsV1' or 'drawing' in name:
             print('Drawing model loaded')
             model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
             model.load_state_dict(loaded)
-        elif model_type == 'ModifiedResNet' or dataset == 'SketchyV1' or dataset == 'Sketchy' or dataset == 'KaggleV1' or dataset == 'Kaggle' or 'Mixed' in dataset:
+        elif model_type == 'ModifiedResNet' or dataset in datasetsV1:
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
         elif model_type == 'ModifiedResNet_with_classification' and dataset == 'SketchyV2':

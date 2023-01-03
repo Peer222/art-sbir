@@ -730,17 +730,17 @@ class MixedDataset(Dataset):
         self.mode, self.size, self.version = mode, size, version
 
         self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size)
-        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size)
+        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, transform=image_transform)
 
     def __len__(self) -> int:
-        return 2 * max(len(self.sketchy, self.kaggle)) if self.mode == 'train' else len(self.kaggle)
+        return 2 * max(len(self.sketchy), len(self.kaggle)) if self.mode == 'train' else len(self.kaggle)
 
     def __getitem__(self, idx:int):
-        if self.mode == 'test': return self.kaggle.__getitem__(idx)
+        if self.mode == 'test': return self.kaggle.__getitem__(idx)[:3]
         if idx % 2 == 0:
-            return self.kaggle.__getitem__( (idx // 2) % len(self.kaggle) )
+            return self.kaggle.__getitem__( (idx // 2) % len(self.kaggle) )[:3]
         else:
-            return self.sketchy.__getitem__( ((idx - 1) // 2) % len(self.sketchy) )
+            return self.sketchy.__getitem__( ((idx - 1) // 2) % len(self.sketchy) )[:3]
 
     @property
     def state_dict(self):
