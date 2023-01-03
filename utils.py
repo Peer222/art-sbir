@@ -67,7 +67,7 @@ MARGIN = 0.2 # Sketching without Worrying
 triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
-triplet_euclidean_loss_with_classification2 = TripletMarginLoss_with_classification2(margin=MARGIN)
+triplet_euclidean_loss_with_classification2 = TripletMarginLoss_with_classification2(margin=MARGIN, classification_weight=0, classification_weight2=0)
 
 
 def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:float=100):
@@ -121,7 +121,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
             print('Drawing model loaded')
             model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
             model.load_state_dict(loaded)
-        elif model_type == 'ModifiedResNet' or dataset == 'SketchyV1' or dataset == 'Sketchy' or dataset == 'KaggleV1' or dataset == 'Kaggle':
+        elif model_type == 'ModifiedResNet' or dataset == 'SketchyV1' or dataset == 'Sketchy' or dataset == 'KaggleV1' or dataset == 'Kaggle' or 'Mixed' in dataset:
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
         elif model_type == 'ModifiedResNet_with_classification' and dataset == 'SketchyV2':

@@ -9,6 +9,7 @@ from PIL import Image
 from PIL import ImageOps
 import torchvision.transforms as transforms
 
+import argparse
 import json
 from pathlib import Path
 from typing import List, Tuple, Dict
@@ -157,7 +158,7 @@ def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:
                 ax.imshow(image)
             
                 if image_path.stem in sketch_path.stem:
-                    add_frame(ax, space=30, linewidth=1.2, color=Color.GREEN)
+                    add_frame(ax, space=60, linewidth=2.0, color=Color.GREEN)
 
 
     col_titles = ['Query', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
@@ -178,7 +179,7 @@ def load_file(file_path:Path):
         else:
             print(file_path.suffix)
 
-# adds frame around current plot (has to be called after plot is added)
+# adds frame around current plot or axes (has to be called after plot is added)
 def add_frame(ax, space=0, linewidth=0.4, color=Color.BLACK):
     if not 'AxesSubplot' in str(type(ax)): ax = ax.gca()
     autoAxis = ax.axis()
@@ -203,4 +204,16 @@ def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=Non
 
 
 if __name__ == '__main__':
-    show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
+    #show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', type=Path)
+    parser.add_argument('-m', '--method', default='visualize', choices=['visualize'])
+    args = parser.parse_args()
+
+    if args.method == 'visualize':
+        with open(args.path / 'training.json', 'r') as f:
+            training_dict = json.load(f)
+        with open(args.path / 'inference.json') as f:
+            inference_dict = json.load(f)
+
+        visualize(args.path, training_dict, inference_dict)

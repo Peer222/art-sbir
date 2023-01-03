@@ -613,11 +613,7 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         state_dict['sketch_format']= self.sketch_format
         return state_dict
 
-class AugmentedKaggleDatasetV2(KaggleDatasetV2):
-    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
-        super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
-
-        self.transform = transforms.Compose([
+image_transform = transforms.Compose([
             transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
             #transforms.CenterCrop(size=(224, 224)),
             transforms.Lambda(lambda img : img.convert('RGB')),
@@ -625,7 +621,7 @@ class AugmentedKaggleDatasetV2(KaggleDatasetV2):
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
 
-        self.sketch_transform = transforms.Compose([
+sketch_transform = transforms.Compose([
             transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
             transforms.Lambda(lambda img : img.convert('RGB')),
 
@@ -642,6 +638,41 @@ class AugmentedKaggleDatasetV2(KaggleDatasetV2):
             #transforms.ToPILImage()
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
+
+class AugmentedKaggleDatasetV1(KaggleDatasetV1):
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+        super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
+
+        self.transform = image_transform
+        self.sketch_transform = sketch_transform
+
+    def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
+        item = list(super().load_image_tuple(idx))
+        if self.mode == 'train' and random.random() > 0.5:
+            item[0] = item[0].transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
+            item[1] = item[1].transpose(method=Image.Transpose.FLIP_LEFT_RIGHT)
+            item[2] = transforms.RandomHorizontalFlip(p=0.5)(item[2])
+        return item
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: # sketch, pos_image, neg_image
+        sketch, pos_img, neg_img = self.load_image_tuple(idx)
+        pos_img, neg_img = self.transform(pos_img), self.transform(neg_img)
+        if self.mode == 'train': sketch = self.sketch_transform(sketch)
+        else: sketch = self.transform(sketch)
+        return sketch, pos_img, neg_img
+
+    @property
+    def state_dict(self) -> Dict:
+        state_dict = super().state_dict
+        state_dict['sketch_transform'] = str(self.sketch_transform) + " + paired random horizontal flip"
+        return state_dict
+
+class AugmentedKaggleDatasetV2(KaggleDatasetV2):
+    def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
+        super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
+
+        self.transform = image_transform
+        self.sketch_transform = sketch_transform
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))
@@ -693,6 +724,28 @@ class KaggleInferenceDatasetV1(Dataset):
         return {"dataset": f"{self.__class__.__name__}", "img_number": len(self), "sketch_type": self.sketch_type, "sketch_format": self.sketch_format,
                 "transform": str(self.transform), "date": "31.12.2022"}
 
+class MixedDataset(Dataset):
+    def __init__(self, mode='train', size=1.0, version='V1'):
+        super().__init__()
+        self.mode, self.size, self.version = mode, size, version
+
+        self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size)
+        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size)
+
+    def __len__(self) -> int:
+        return 2 * max(len(self.sketchy, self.kaggle)) if self.mode == 'train' else len(self.kaggle)
+
+    def __getitem__(self, idx:int):
+        if self.mode == 'test': return self.kaggle.__getitem__(idx)
+        if idx % 2 == 0:
+            return self.kaggle.__getitem__( (idx // 2) % len(self.kaggle) )
+        else:
+            return self.sketchy.__getitem__( ((idx - 1) // 2) % len(self.sketchy) )
+
+    @property
+    def state_dict(self):
+        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
+
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
 
@@ -721,13 +774,22 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'KaggleV2':
         train_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
         test_dataset = KaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
+    elif dataset == 'AugmentedKaggleV1':
+        train_dataset = AugmentedKaggleDatasetV1(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
+        test_dataset = AugmentedKaggleDatasetV1(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
     elif dataset == 'AugmentedKaggleV2':
         train_dataset = AugmentedKaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'train', size, seed)
         test_dataset = AugmentedKaggleDatasetV2(sketch_format, img_format, sketch_type, img_type, transform, 'test', size, seed)
     elif dataset == 'KaggleInferenceV1':
         train_dataset = None
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
-
+        
+    elif dataset == 'MixedDatasetV1':
+        train_dataset = MixedDataset('train', size, 'V1')
+        test_dataset = MixedDataset('test', size, 'V1')
+    elif dataset == 'MixedDatasetV2':
+        train_dataset = MixedDataset('train', size, 'V2')
+        test_dataset = MixedDataset('test', size, 'V2')
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
