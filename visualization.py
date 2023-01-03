@@ -50,7 +50,7 @@ def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
     if mode == 'sketch': titles = ["Sketch", "Matching image", "Non-matching image"]
     elif mode == 'image': 
         titles = ['Image', 'Artificial sketch', 'Original sketch']
-        inverted = [0, 1, 0] #activate for semi supervised
+        #inverted = [0, 1, 0] #activate for semi supervised
     else: titles = ['','','']
 
     for i, tuple in enumerate(triplets):

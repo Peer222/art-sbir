@@ -732,8 +732,11 @@ class MixedDataset(Dataset):
         self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size)
         self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, transform=image_transform)
 
+        self.photo_paths = self.kaggle.photo_paths
+        self.sketch_paths = self.kaggle.sketch_paths
+
     def __len__(self) -> int:
-        return 2 * max(len(self.sketchy), len(self.kaggle)) if self.mode == 'train' else len(self.kaggle)
+        return 2 * max(len(self.sketchy), len(self.kaggle)) if self.mode == 'train' else len(self.sketch_paths)
 
     def __getitem__(self, idx:int):
         if self.mode == 'test': return self.kaggle.__getitem__(idx)[:3]
