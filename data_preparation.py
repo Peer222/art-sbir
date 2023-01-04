@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 import visualization
 import utils
 import semiSupervised_utils
+import transformations
 
 
 # provides interface for loading duplicate free image paths with corresponding images (used in inference.compute_image_features)
@@ -613,38 +614,13 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
         state_dict['sketch_format']= self.sketch_format
         return state_dict
 
-image_transform = transforms.Compose([
-            transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
-            #transforms.CenterCrop(size=(224, 224)),
-            transforms.Lambda(lambda img : img.convert('RGB')),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
-        ])
-
-sketch_transform = transforms.Compose([
-            transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
-            transforms.Lambda(lambda img : img.convert('RGB')),
-
-            transforms.RandomApply(p=0.5, transforms=[
-                transforms.RandomPerspective(distortion_scale=0.3, p=1.0, fill=255),
-                transforms.RandomAffine(degrees=0, scale=(1.05, 1.3), fill=255),
-            ]),
-            transforms.RandomApply(p=0.5, transforms=[
-                transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=(-7, 7, -7, 7), fill=255)
-            ]),
-
-            transforms.ToTensor(),
-            transforms.RandomErasing(p=0.5, scale=(0.05, 0.2), value=1.0),
-            #transforms.ToPILImage()
-            transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
-        ])
 
 class AugmentedKaggleDatasetV1(KaggleDatasetV1):
     def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
         super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
 
-        self.transform = image_transform
-        self.sketch_transform = sketch_transform
+        self.transform = transformations.image_transform
+        self.sketch_transform = transformations.sketch_transformV1
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))
@@ -671,8 +647,8 @@ class AugmentedKaggleDatasetV2(KaggleDatasetV2):
     def __init__(self, sketch_format='png', img_format='jpg', sketch_type='contour_drawings', img_type="images", transform=transforms.ToTensor(), mode="train", size=0.1, seed=42) -> None:
         super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
 
-        self.transform = image_transform
-        self.sketch_transform = sketch_transform
+        self.transform = transformations.image_transform
+        self.sketch_transform = transformations.sketch_transformV1
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))
@@ -725,13 +701,14 @@ class KaggleInferenceDatasetV1(Dataset):
                 "transform": str(self.transform), "date": "31.12.2022"}
 
 class MixedDataset(Dataset):
-    def __init__(self, mode='train', size=1.0, version='V1'):
+    def __init__(self, mode='train', size=1.0, transform=transformations.image_transform, version='V1'):
         super().__init__()
-        self.mode, self.size, self.version = mode, size, version
+        self.mode, self.size, self.transform, self.version = mode, size, transform, version
 
         self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size)
-        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, transform=image_transform)
+        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, transform=self.transform)
 
+        # only needed for inference
         self.photo_paths = self.kaggle.photo_paths
         self.sketch_paths = self.kaggle.sketch_paths
 
@@ -747,7 +724,7 @@ class MixedDataset(Dataset):
 
     @property
     def state_dict(self):
-        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
+        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
@@ -788,11 +765,11 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
         
     elif dataset == 'MixedDatasetV1':
-        train_dataset = MixedDataset('train', size, 'V1')
-        test_dataset = MixedDataset('test', size, 'V1')
+        train_dataset = MixedDataset(mode='train', size=size, version='V1')
+        test_dataset = MixedDataset(mode='test',size=size, version='V1')
     elif dataset == 'MixedDatasetV2':
-        train_dataset = MixedDataset('train', size, 'V2')
-        test_dataset = MixedDataset('test', size, 'V2')
+        train_dataset = MixedDataset(mode='train',size=size, version='V2')
+        test_dataset = MixedDataset(mode='test',size=size, version='V2')
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
@@ -834,14 +811,14 @@ if __name__ == '__main__':
 
     #dataset = KaggleDatasetV2()
     #print(dataset.sketch_paths[0])
-    """
+    
     dataset = AugmentedKaggleDatasetV2()
-    image = Image.open('test.png')
+    image = Image.open('../transformations/test.png')
     for i in range(10):
         augmented_img = dataset.sketch_transform(image)
-        augmented_img.save(f'../transformations/transformed4_img_{i}.png')
-    """
+        augmented_img.save(f'../transformations/transformed6_img_{i}.png')
+    
 
-    dataset = SketchyDatasetV1(size=1.0, mode='test')
-    dataset2 = InferenceDataset(dataset.photo_paths)
-    print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset2))
+    #dataset = SketchyDatasetV1(size=1.0, mode='test')
+    #dataset2 = InferenceDataset(dataset.photo_paths)
+    #print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset2))
