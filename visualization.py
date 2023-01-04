@@ -16,7 +16,7 @@ from typing import List, Tuple, Dict
 
 class Color:
     BLACK = (0,0,0)
-    BLUE = (0, 88/256, 154/256)
+    BLUE = (55/256, 88/256, 136/256)
     RED = (161/256, 34/256, 0)
     GREEN = (141/256, 201/256, 20/256) #(0, 124/256, 6/256)
     YELLOW = (227/256, 193/256, 0)
@@ -77,8 +77,8 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     epochs = np.arange(1, len(train_losses) + 1, 1)
     fig, ax = plt.subplots(figsize=(7,5))
 
-    ax.plot(epochs, train_losses, c=Color.BLUE, label="Train loss")
-    ax.plot(epochs, test_losses, c=Color.YELLOW, label="Test loss")
+    ax.plot(epochs, train_losses, c=Color.YELLOW, label="Train loss")
+    ax.plot(epochs, test_losses, c=Color.BLUE, label="Test loss")
 
     plt.title(title)
     plt.xlabel("Epoch")
@@ -113,8 +113,11 @@ def show_topk_accuracy(topk_acc:List[float], filename:Path=None, title:str=None)
 
     topk_acc = [x * 100 for x in topk_acc]
 
+    bar_labels = [f"{round(acc, 1):.1f} %" for acc in topk_acc]
+
     fig, ax = plt.subplots(figsize=(9,5))
-    ax.bar(labels, topk_acc, color=Color.BLUE)
+    bars = ax.bar(labels, topk_acc, color=Color.BLUE)
+    ax.bar_label(bars, bar_labels)
 
     if title: plt.title(title)
     else: plt.title("Top_k accuracy")
