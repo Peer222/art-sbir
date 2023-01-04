@@ -115,7 +115,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
     loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
 
-    datasetsV1 = [ 'SketchyV1', 'Sketchy', 'KaggleV1',  'Kaggle', 'AugmentedKaggleV1',  'MixedDatasetV1',  'MixedDatasetV2'] # MixedDatasetV2 because only negative image selection is used (no labels)
+    datasetsV1 = [ 'SketchyV1', 'SketchyDatasetV1', 'Sketchy', 'KaggleV1', 'KaggleDatasetV1', 'Kaggle', 'AugmentedKaggleV1', 'AugmentedKaggleDatasetV1',  'MixedDatasetV1',  'MixedDatasetV2'] # MixedDatasetV2 because only negative image selection is used (no labels)
 
     if isinstance(loaded, dict):
         print("Dictionary used to load model")
@@ -126,7 +126,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
         elif model_type == 'ModifiedResNet' or dataset in datasetsV1:
             model = models.ModifiedResNet(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
-        elif model_type == 'ModifiedResNet_with_classification' and dataset == 'SketchyV2':
+        elif model_type == 'ModifiedResNet_with_classification' and dataset in ['SketchyV2', 'SketchyDatasetV2']:
             print("Model with classification layer loaded")
             model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024)
             model.load_state_dict(loaded, strict=False)
@@ -134,7 +134,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
             print('Photo2Sketch model loaded')
             model = models.Photo2Sketch(options.z_size, options.dec_rnn_size, options.num_mixture, max_seq_len)
             model.load_state_dict(loaded)
-        elif model_type == 'ModifiedResNet_with_classification' and (dataset == 'KaggleV2' or dataset == 'AugmentedKaggleV2'):
+        elif model_type == 'ModifiedResNet_with_classification' and (dataset in ['KaggleV2', 'KaggleDatasetV2', 'AugmentedKaggleV2', 'AugmentedKaggleDatasetV2']):
             # fails if sketchy pretrained model with classifier-125 is loaded
             try:
                 model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=70, num_classes2=32) # styles, genres
@@ -231,4 +231,4 @@ def save_image_features(model_name:str, dataset_name:str, inference_dataset, ima
         writer.writerows(image_features.numpy())
 
     print(f"Image features saved in {feature_path / 'image_features.csv'}")
-    return feature_path.stem
+    return feature_path.name

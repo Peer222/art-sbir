@@ -1,7 +1,7 @@
 from torchvision import transforms
 from PIL import Image
 
-image_transform = transforms.Compose([
+image_transformV1 = transforms.Compose([
             transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
             #transforms.CenterCrop(size=(224, 224)),
             transforms.Lambda(lambda img : img.convert('RGB')),
@@ -48,6 +48,10 @@ sketch_transformV2 = transforms.Compose([
             #transforms.ToPILImage()
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
+
+def get_transformation(type='image_transform', version='V1'):
+    t = f"{type}{version}"
+    return eval(t), t
 
 
 if __name__ == '__main__':

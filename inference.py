@@ -124,6 +124,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
     with_classification = 'with_classification' in type(model).__name__
 
     if folder_name:
+        feature_folder = folder_name
         image_paths, image_features = utils.load_image_features(folder_name)
         inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
         print("Image features loaded from file")
@@ -162,7 +163,7 @@ if __name__ == "__main__":
     for FOLDER in FOLDERS:
 
         MODEL = FOLDER + '.pth'
-        MODEL_TYPE = FOLDER.split('_')[0] if len(FOLDER.split('_')) == 3 else "ModifiedResNet_with_classification"
+        MODEL_TYPE = FOLDER.split('_')[0] if len(FOLDER.split('_')) == 4 else "ModifiedResNet_with_classification"
 
         if not Path(f"models/{MODEL}").is_file():
             print(f"Model {MODEL} is not available", flush=True)
@@ -179,6 +180,7 @@ if __name__ == "__main__":
             training_dict = json.load(f)
 
         inference_file = "inference_updated.json" if (Path("results") / FOLDER / "inference_updated.json").is_file() else "inference.json"
+        print(inference_file)
         with open(Path("results") / FOLDER / inference_file, 'r') as f:
             inference_dict_ = json.load(f)
 
@@ -205,7 +207,7 @@ if __name__ == "__main__":
         inference_dict = run_inference(model, test_dataset, feature_folder)
 
         with open(Path("results") / FOLDER / "inference_updated.json", "w") as f:
-            json.dump(inference_dict)
+            json.dump(inference_dict, f)
 
         # saves visualizations in result folder
         visualization.visualize(Path("results") / FOLDER, training_dict, inference_dict)
