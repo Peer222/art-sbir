@@ -1,4 +1,5 @@
 from torchvision import transforms
+from PIL import Image
 
 image_transform = transforms.Compose([
             transforms.Resize(size=(224, 224), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
@@ -22,7 +23,7 @@ sketch_transformV1 = transforms.Compose([
             ]),
 
             transforms.ToTensor(),
-            transforms.RandomErasing(p=0.5, scale=(0.05, 0.2), value=1.0),
+            transforms.RandomErasing(p=0.5, scale=(0.05, 0.2), value=1.0), # https://arxiv.org/abs/1708.04896
             #transforms.ToPILImage()
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
@@ -47,3 +48,10 @@ sketch_transformV2 = transforms.Compose([
             #transforms.ToPILImage()
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
+
+
+if __name__ == '__main__':
+    image = Image.open('../transformations/test.png')
+    for i in range(10):
+        augmented_img = sketch_transformV2(image)
+        augmented_img.save(f'../transformations/transformed7_img_{i}.png')

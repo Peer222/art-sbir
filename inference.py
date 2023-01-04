@@ -8,6 +8,9 @@ import re
 import random
 from PIL import Image
 
+import os
+import json
+
 import numpy as np
 
 import torch
@@ -73,9 +76,9 @@ def compute_image_features(model, dataset, with_classification:bool) -> Tuple[Da
 
     image_features = image_features.cpu()
 
-    utils.save_image_features(model.__class__.__name__, dataset.state_dict['dataset'], inference_dataset, image_features)
+    feature_path = utils.save_image_features(model.__class__.__name__, dataset.state_dict['dataset'], inference_dataset, image_features)
 
-    return inference_dataset, image_features
+    return inference_dataset, image_features, feature_path
 
 def process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification):
     avg_rank = 0
@@ -125,7 +128,7 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
         inference_dataset = data_preparation.InferenceDataset(image_paths, model.transform)
         print("Image features loaded from file")
     else:
-        inference_dataset, image_features = compute_image_features(model, dataset, with_classification)
+        inference_dataset, image_features, feature_folder = compute_image_features(model, dataset, with_classification)
 
     dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=0, shuffle=False)
 
@@ -135,30 +138,76 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
         _, dataset2 = data_preparation.get_datasets('KaggleInferenceV1', sketch_type='sketches', transform=dataset.transform)
         dataloader2 = DataLoader(dataset=dataset2, batch_size=1, num_workers=0, shuffle=False)
         inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification)
-    else: return inference_dict
+    else: 
+        inference_dict['image_features'] = feature_folder
+        return inference_dict
 
-    return {'drawing_stats': inference_dict, 'sketch_stats': inference_dict2}
+    return {'image_features': feature_folder, 'drawing_stats': inference_dict, 'sketch_stats': inference_dict2}
 
 if __name__ == "__main__":
-    # command line tool to run inference only
-    parser = argparse.ArgumentParser(description="TODO")
+    parser = argparse.ArgumentParser(description='recomputes Inference for given folder')
 
-    parser.add_argument("-m", "--model", type=str, required=True, help="file name of model in models/")
-    parser.add_argument("-f", "--folder_name", type=str, required=True, help="corresponding folder in data/image_features/")
-    parser.add_argument("-d", "--dataset", type=str, default="SketchyDatasetV1", help="corresponding folder in data/image_features/")
-    parser.add_argument("-s", "--dsize", type=float, default=0.01, help="fraction of elements used from dataset")
-    
+    parser.add_argument('--folder', default=None, help="Folder on which rerunning inference")
+    parser.add_argument('-a', '--all', action="store_true", help="Rerun inference for all Modified_ResNet* models where results folder exist")
+
     args = parser.parse_args()
 
-    model = utils.load_model(args.model)
+    FOLDERS = [] if not args.folder else list(args.folder)
+    if args.all:
+        #FOLDERS = next(os.walk('./data/image_features/'))[1]
+        FOLDERS = Path("./models").glob("ModifiedResNet*.pth")
+        FOLDERS = [path.stem for path in FOLDERS]
+    print(FOLDERS, flush=True)
 
-    dataset_name = re.findall("\w+_(\w+)_\w+", args.folder_name)[0]
+    for FOLDER in FOLDERS:
 
-    if dataset_name == args.dataset: _, dataset = data_preparation.get_datasets(size=args.dsize) #test dataset currently only sketchyV1 supported !!!!
+        MODEL = FOLDER + '.pth'
+        MODEL_TYPE = FOLDER.split('_')[0] if len(FOLDER.split('_')) == 3 else "ModifiedResNet_with_classification"
 
-    if not dataset: raise ValueError("no dataset found")
+        if not Path(f"models/{MODEL}").is_file():
+            print(f"Model {MODEL} is not available", flush=True)
+            continue
 
-    inference_dict = run_inference(model, dataset, args.folder_name)
-    inference_dict['folder_name'] = args.folder_name
+        if not Path(f"results/{FOLDER}").is_dir():
+            print(f"Results {FOLDER} are not available", flush=True)
+            continue
 
-    folder = utils.save_model(model=model, data_dict=dataset.state_dict, inference_dict=inference_dict)
+        with open(Path("results") / FOLDER / "data_params.json", 'r') as f:
+            data_dict = json.load(f)
+
+        with open(Path("results") / FOLDER / "training.json", 'r') as f:
+            training_dict = json.load(f)
+
+        inference_file = "inference_updated.json" if (Path("results") / FOLDER / "inference_updated.json").is_file() else "inference.json"
+        with open(Path("results") / FOLDER / inference_file, 'r') as f:
+            inference_dict_ = json.load(f)
+
+        DATASET = data_dict['dataset'] if not 'Mixed' in data_dict['dataset'] else data_dict['dataset'] + data_dict['version']
+
+        print(DATASET, MODEL, MODEL_TYPE)
+
+        model = utils.load_model(MODEL, dataset=DATASET, model_type=MODEL_TYPE)
+        model.to(device)
+
+
+        # options have to be added
+        if 'Mixed' in DATASET:
+            _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'])
+        elif 'Kaggle' in DATASET:
+            _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'], sketch_type=data_dict['sketch_type'], img_type=data_dict['img_type'], img_format=data_dict['img_format'], transform=model.transform)
+        elif 'Sketchy' in DATASET:
+            _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'], img_type=data_dict['img_type'], img_format=data_dict['img_format'], transform=model.transform)
+
+        #print(test_dataset.state_dict)
+
+        feature_folder = inference_dict_['image_features'] if 'image_features' in inference_dict_.keys() else None
+
+        inference_dict = run_inference(model, test_dataset, feature_folder)
+
+        with open(Path("results") / FOLDER / "inference_updated.json", "w") as f:
+            json.dump(inference_dict)
+
+        # saves visualizations in result folder
+        visualization.visualize(Path("results") / FOLDER, training_dict, inference_dict)
+
+        print(f"RUN INFERENCE AND VISUALIZATION FOR {FOLDER}", flush=True)

@@ -212,7 +212,7 @@ def load_image_features(folder_name:str) -> Tuple[any, torch.Tensor]:
     image_features = pd.read_csv(path / "image_features.csv", header=None).values
     return image_paths, torch.from_numpy(image_features)
 
-def save_image_features(model_name:str, dataset_name:str, inference_dataset, image_features) -> None:
+def save_image_features(model_name:str, dataset_name:str, inference_dataset, image_features) -> str:
     feature_path = Path("data/image_features")
     if not feature_path.is_dir(): feature_path.mkdir(parents=True, exist_ok=True)
 
@@ -231,3 +231,4 @@ def save_image_features(model_name:str, dataset_name:str, inference_dataset, ima
         writer.writerows(image_features.numpy())
 
     print(f"Image features saved in {feature_path / 'image_features.csv'}")
+    return feature_path.stem

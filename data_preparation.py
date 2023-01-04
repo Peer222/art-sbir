@@ -620,7 +620,7 @@ class AugmentedKaggleDatasetV1(KaggleDatasetV1):
         super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
 
         self.transform = transformations.image_transform
-        self.sketch_transform = transformations.sketch_transformV1
+        self.sketch_transform = transformations.sketch_transformV2
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))
@@ -648,7 +648,7 @@ class AugmentedKaggleDatasetV2(KaggleDatasetV2):
         super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
 
         self.transform = transformations.image_transform
-        self.sketch_transform = transformations.sketch_transformV1
+        self.sketch_transform = transformations.sketch_transformV2
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))
@@ -812,13 +812,7 @@ if __name__ == '__main__':
     #dataset = KaggleDatasetV2()
     #print(dataset.sketch_paths[0])
     
-    dataset = AugmentedKaggleDatasetV2()
-    image = Image.open('../transformations/test.png')
-    for i in range(10):
-        augmented_img = dataset.sketch_transform(image)
-        augmented_img.save(f'../transformations/transformed6_img_{i}.png')
-    
 
-    #dataset = SketchyDatasetV1(size=1.0, mode='test')
+    dataset = SketchyDatasetV1(size=1.0, mode='test')
     #dataset2 = InferenceDataset(dataset.photo_paths)
     #print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset2))

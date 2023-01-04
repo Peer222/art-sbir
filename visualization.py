@@ -216,7 +216,11 @@ if __name__ == '__main__':
     if args.method == 'visualize':
         with open(args.path / 'training.json', 'r') as f:
             training_dict = json.load(f)
-        with open(args.path / 'inference.json') as f:
-            inference_dict = json.load(f)
+        try:
+            with open(args.path / 'inference_updated.json') as f:
+                inference_dict = json.load(f)
+        except:
+            with open(args.path / 'inference.json') as f:
+                inference_dict = json.load(f)
 
         visualize(args.path, training_dict, inference_dict)
