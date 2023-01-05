@@ -350,9 +350,14 @@ class SketchyDatasetPix2Pix(SketchyDatasetV1):
         return {'A': self.transform_img(image), 'B': self.transform_sketch(sketch), 'img_paths': str(self.photo_paths[idx])}
 
     def transform_pix2pix(self, to_grayscale:bool):
-        transformations = [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))] # normalize to a range of [-1, 1] (tanh is used as final activation)
-        transformations += [transforms.Grayscale(1)] if to_grayscale else []
-        return transforms.Compose(transformations)
+        # from drawings
+        transforms_img = [transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC), transforms.ToTensor()] # resizes smallest edge + keeps ratio 
+        transforms_img += [transforms.Grayscale(1)] if to_grayscale else []
+        return transforms.Compose(transforms_img)
+        # from pix2pix
+        #transformations = [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))] # normalize to a range of [-1, 1] (tanh is used as final activation)
+        #transformations += [transforms.Grayscale(1)] if to_grayscale else []
+        #return transforms.Compose(transformations)
 
     @property
     def state_dict(self) -> Dict:
@@ -481,6 +486,7 @@ class KaggleDatasetImgOnlyV1(Dataset):
 
         #print(self.styles.loc['Abstract Expressionism']['index'])
         #print(self.styles.iloc[1].name)
+        print(len(self.image_data))
 
     def _load_img_data(self) -> pd.DataFrame:
         self.csv_path = Path(f'data/kaggle/kaggle_art_dataset_{self.mode}.csv')
@@ -620,7 +626,7 @@ class AugmentedKaggleDatasetV1(KaggleDatasetV1):
         super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
 
         self.transform, _ = transformations.get_transformation()
-        self.sketch_transform, self.t_name = transformations.get_transformation("sketch_transform", "V2")
+        self.sketch_transform, self.t_name = transformations.get_transformation("sketch_transform", "V1")
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))
@@ -649,7 +655,7 @@ class AugmentedKaggleDatasetV2(KaggleDatasetV2):
         super().__init__(sketch_format, img_format, sketch_type, img_type, transform, mode, size, seed)
 
         self.transform, _ = transformations.get_transformation()
-        self.sketch_transform, self.t_name = transformations.get_transformation("sketch_transform", "V2")
+        self.sketch_transform, self.t_name = transformations.get_transformation("sketch_transform", "V1")
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         item = list(super().load_image_tuple(idx))

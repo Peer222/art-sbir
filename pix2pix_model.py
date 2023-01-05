@@ -9,6 +9,9 @@ from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
 
+import utils
+import drawing_utils.model
+
 # https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
 
 
@@ -318,7 +321,7 @@ class Pix2PixModel(BaseModel):
         self.loss_G_total = self.loss_G_GAN + self.loss_G_L1 # changed
         if backprop: self.loss_G_total.backward() # changed
 
-    def optimize_parameters(self):
+    def optimize_parameters(self, decoder_only=False):
         self.forward()                   # compute fake images: G(A)
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
@@ -326,6 +329,7 @@ class Pix2PixModel(BaseModel):
         self.backward_D()                # calculate gradients for D
         self.optimizer_D.step()          # update D's weights
         # update G
+        if decoder_only: return
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate gradients for G
@@ -471,6 +475,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     #    net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     if netG == 'unet_256':
         net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+    elif netG == 'DrawingGenerator':
+        if len(gpu_ids) > 0: return utils.load_model('drawing_models/contour.pth', model_type='DrawingGenerator').to(gpu_ids[0])
+        else: return utils.load_model('drawing_models/contour.pth', model_type='DrawingGenerator')
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)

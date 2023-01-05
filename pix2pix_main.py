@@ -21,6 +21,12 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
 
     start_time = timer()
 
+    # Generator already pre trained so firstly train only decoder for 1 epoch
+    model.train()
+    for i, data in enumerate(dataloader_train):  # inner loop within one epoch
+        model.set_input(data)         # unpack data from dataset and apply preprocessing
+        model.optimize_parameters(decoder_only=True)   # calculate loss functions, get gradients, update network weights
+
     # ['G_GAN', 'G_L1', 'D_real', 'D_fake']
     train_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': [], 'D_total': [], 'G_total' : []}
     test_losses = {'G_GAN': [], 'G_L1': [], 'D_real': [], 'D_fake': [], 'D_total': [], 'G_total' : []}
@@ -86,20 +92,20 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
 
 if __name__ == '__main__':
 
-    EPOCHS = 30
+    EPOCHS = 1
 
     BATCH_SIZE = 6 # 1 - 10 used depending on experiment
     BATCH_SIZE_TEST = 1
-    LEARNING_RATE = 2e-4 # default for pix2pix
+    LEARNING_RATE = 5e-5#2e-4 # default for pix2pix
     BETAS = (0.5, 0.999) # default for pix2pix (beta2 fixed)
 
-    DATASET_SIZE = 0.01#1 #0.005
+    DATASET_SIZE = 1.0 #0.01#1 #0.005
 
     # from base_options
     param_dict = {
         'checkpoints_dir': './results',
         'name': 'placeholder', # name of the experiment (can be freely choosed)
-        'save_epoch_freq': 30,
+        'save_epoch_freq': 1,
         'n_epochs': EPOCHS,
 
         'input_nc': 3, # rgb
@@ -108,7 +114,7 @@ if __name__ == '__main__':
         'ndf': 64,
         'n_layers_D': 3, # default (not used if netD == basic)
         'netD': 'basic', # default for pix2pix (patchGAN)
-        'netG': 'unet_256', # default for pix2pix
+        'netG': 'DrawingGenerator', #'unet_256', # default for pix2pix
         'norm': 'batch', # default for pix2pix -> 'instance' may be better (CycleGAN)
         'pool_size': 0,  # default for pix2pix (train)
         'gan_mode': 'vanilla',  # default for pix2pix (train)
@@ -122,7 +128,7 @@ if __name__ == '__main__':
         'direction': 'AtoB',
         #'dataset_mode': 'aligned', # default for pix2pix -> own dataset
 
-        'lambda_L1': 100.0, # weighting for L1_Loss <-> default for pix2pix ('train)
+        'lambda_L1': 10, # 100.0, # weighting for L1_Loss <-> default for pix2pix ('train)
         'lr': LEARNING_RATE,
         'beta1': BETAS[0],
         'batch_size': BATCH_SIZE,

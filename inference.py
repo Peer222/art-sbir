@@ -12,6 +12,7 @@ import os
 import json
 
 import numpy as np
+import pandas as pd
 
 import torch
 from torch.utils.data import DataLoader
@@ -81,7 +82,7 @@ def compute_image_features(model, dataset, with_classification:bool) -> Tuple[Da
     return inference_dataset, image_features, feature_path
 
 def process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification):
-    avg_rank = 0
+    ranks = []
     mean_reciprocal_rank = 0
     k = 10
     topk_acc = np.zeros(k)
@@ -101,20 +102,27 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
             rank = get_ranking_position(dataset.sketch_paths[i], inference_dataset.image_paths, sketch_feature, image_features)
 
             # rank starts at 0
-            avg_rank += rank + 1
+            ranks.append(rank + 1)
             mean_reciprocal_rank += 1/(rank + 1)
             if rank < 10: topk_acc[rank:] += 1
 
             if random_indices.count(i) > 0:
                 retrieval_samples.append({str(dataset.sketch_paths[i]): get_topk_images(k, inference_dataset.image_paths, sketch_feature, image_features)})
 
-    avg_rank /= len(dataset)
+    rankings = pd.DataFrame(ranks, columns=['rank'])
     mean_reciprocal_rank /= len(dataset)
     topk_acc /= len(dataset)
 
     time = timer() - start_time
 
-    return {"avg_rank": avg_rank, "mean_reciprocal_rank": mean_reciprocal_rank, "topk_acc": list(topk_acc), "retrieval_samples": retrieval_samples, "size": len(inference_dataset), "inference_time": time}
+    stats = {"mean_reciprocal_rank": mean_reciprocal_rank, "size": len(inference_dataset), "inference_time": time}
+    pandas_stats = rankings.describe().to_dict()['rank']
+    for key in pandas_stats.keys():
+        stats[key] = pandas_stats[key]
+    stats["topk_acc"] = list(topk_acc)
+    stats["retrieval_samples"] = retrieval_samples
+
+    return stats
 
 
 # dataset: test data, folder_name: if specified image_features will be loaded from file instead of computed
@@ -153,11 +161,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    FOLDERS = [] if not args.folder else list(args.folder)
+    FOLDERS = [] if not args.folder else [args.folder]
     if args.all:
         #FOLDERS = next(os.walk('./data/image_features/'))[1]
         FOLDERS = Path("./models").glob("ModifiedResNet*.pth")
         FOLDERS = [path.stem for path in FOLDERS]
+
+        #FOLDERS = [folder for folder in FOLDERS if "Kaggle" in folder or "Mixed" in folder]
     print(FOLDERS, flush=True)
 
     for FOLDER in FOLDERS:
@@ -207,7 +217,7 @@ if __name__ == "__main__":
         inference_dict = run_inference(model, test_dataset, feature_folder)
 
         with open(Path("results") / FOLDER / "inference_updated.json", "w") as f:
-            json.dump(inference_dict, f)
+            json.dump(inference_dict, f, indent=4)
 
         # saves visualizations in result folder
         visualization.visualize(Path("results") / FOLDER, training_dict, inference_dict)
