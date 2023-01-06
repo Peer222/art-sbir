@@ -96,9 +96,11 @@ parser.add_argument('--feature_folder', default=None, help="If None image featur
 parser.add_argument("--no_training", action='store_true', help="If set no training will be executed")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
-parser.add_argument('--sketch_type', type=str, default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings'])
+parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'combination'])
 
 args = parser.parse_args()
+
+if args.sketch_type == 'combination': args.sketch_type = ['contour_drawings', 'opensketch_drawings']
 
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size

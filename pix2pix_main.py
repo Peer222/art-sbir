@@ -96,7 +96,7 @@ if __name__ == '__main__':
 
     BATCH_SIZE = 6 # 1 - 10 used depending on experiment
     BATCH_SIZE_TEST = 1
-    LEARNING_RATE = 5e-5#2e-4 # default for pix2pix
+    LEARNING_RATE = 1e-5#2e-4 # default for pix2pix
     BETAS = (0.5, 0.999) # default for pix2pix (beta2 fixed)
 
     DATASET_SIZE = 1.0 #0.01#1 #0.005

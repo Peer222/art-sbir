@@ -558,7 +558,7 @@ class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
 
         self.sketch_format, self.sketch_type = sketch_format, sketch_type
 
-        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}")
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}") if not isinstance(self.sketch_type, list) else Path(f"data/kaggle/{self.sketch_type[0]}")
 
         self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
 
@@ -571,9 +571,12 @@ class KaggleDatasetV1(KaggleDatasetImgOnlyV1):
     def load_image_tuple(self, idx:int) -> Tuple[Image.Image, Image.Image, Image.Image]: # sketch, pos_image, neg_image
         pos_img = self.image_data.iloc[idx]
         neg_img = random.choice(self.image_data['filename'])
-        sketch = Image.open(pos_img['sketchname']).convert('RGB')
 
-        return sketch, Image.open(pos_img['filename']).convert('RGB'), Image.open(neg_img).convert('RGB')
+        sketch = pos_img['sketchname']
+        if isinstance(self.sketch_type, list):
+            sketch = self.sketch_path.parent / random.choice(self.sketch_type) / sketch.name
+
+        return Image.open(sketch).convert('RGB'), Image.open(pos_img['filename']).convert('RGB'), Image.open(neg_img).convert('RGB')
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: # sketch pos_image, neg_image
         sketch, pos_img, neg_img = self.load_image_tuple(idx)
@@ -594,7 +597,7 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
 
         self.sketch_format, self.sketch_type = sketch_format, sketch_type
 
-        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}")
+        self.sketch_path = Path(f"data/kaggle/{self.sketch_type}") if not isinstance(self.sketch_type, list) else Path(f"data/kaggle/{self.sketch_type[0]}")
 
         self._load_sketch_paths() # adds sketchname entry to self.image_data with sketch path
 
@@ -606,8 +609,12 @@ class KaggleDatasetV2(KaggleDatasetImgOnlyV2):
 
     def load_image_tuple(self, idx: int) -> Tuple[Image.Image, Image.Image, Image.Image, int, int]:
         pos_img, neg_img, style_label, genre_label = super().load_image_tuple(idx)
-        sketch = Image.open(self.image_data.loc[idx, 'sketchname']).convert('RGB')
-        return [sketch, pos_img, neg_img, style_label, genre_label]
+
+        sketch = self.image_data.loc[idx, 'sketchname']
+        if isinstance(self.sketch_type, list):
+            sketch = self.sketch_path.parent / random.choice(self.sketch_type) / sketch.name
+
+        return [Image.open(sketch).convert('RGB'), pos_img, neg_img, style_label, genre_label]
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]: # sketch, pos_image, neg_image, style, genre
         sketch, pos_img, neg_img, style, genre = self.load_image_tuple(idx)
@@ -709,11 +716,12 @@ class KaggleInferenceDatasetV1(Dataset):
                 "transform": str(self.transform), "date": "31.12.2022"}
 
 class MixedDataset(Dataset):
-    def __init__(self, mode='train', size=1.0, transform=transformations.get_transformation()[0], version='V1'):
+    def __init__(self, mode='train', sketch_type="contour_drawings", size=1.0, transform=transformations.get_transformation()[0], version='V1'):
         super().__init__()
         self.mode, self.size, self.transform, self.version = mode, size, transform, version
+        self.sketch_type = sketch_type
 
-        self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size)
+        self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size, sketch_type=self.sketch_type)
         self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, transform=self.transform)
 
         # only needed for inference
@@ -732,7 +740,7 @@ class MixedDataset(Dataset):
 
     @property
     def state_dict(self):
-        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
+        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "sketch_type": self.sketch_type, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
@@ -773,11 +781,11 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
         
     elif dataset == 'MixedDatasetV1':
-        train_dataset = MixedDataset(mode='train', size=size, version='V1')
-        test_dataset = MixedDataset(mode='test',size=size, version='V1')
+        train_dataset = MixedDataset(mode='train', size=size, sketch_type=sketch_type, version='V1')
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, version='V1')
     elif dataset == 'MixedDatasetV2':
-        train_dataset = MixedDataset(mode='train',size=size, version='V2')
-        test_dataset = MixedDataset(mode='test',size=size, version='V2')
+        train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, version='V2')
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, version='V2')
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
