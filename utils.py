@@ -16,6 +16,7 @@ from torchinfo import summary
 import models
 import pix2pix_model
 from drawing_utils.model import DrawingGenerator
+from pix2pix_model import Pix2PixModel
 
 def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
@@ -112,14 +113,24 @@ def get_sketch_gen_transform(type:str='train'):
 # loads resnet50m state dicts or arbitrary models
 def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, options=None) -> nn.Module:
     path = Path("models/") / name
-    loaded = torch.load(path, map_location=torch.device('cpu'))
+    if path.is_dir() and model_type == 'Pix2Pix':
+        loaded = [torch.load(path / 'latest_net_G.pth'), torch.load(path / 'latest_net_D.pth')]
+    else:
+        loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
 
     datasetsV1 = [ 'SketchyV1', 'SketchyDatasetV1', 'Sketchy', 'KaggleV1', 'KaggleDatasetV1', 'Kaggle', 'AugmentedKaggleV1', 'AugmentedKaggleDatasetV1',  'MixedDatasetV1',  'MixedDatasetV2'] # MixedDatasetV2 because only negative image selection is used (no labels)
 
-    if isinstance(loaded, dict):
+    if isinstance(loaded, dict) or isinstance(loaded, list):
         print("Dictionary used to load model")
-        if model_type == 'DrawingGenerator' or dataset == 'LineDrawingsV1' or 'drawing' in name:
+        if model_type == 'Pix2Pix':
+            print('Pix2Pix model loaded')
+            model = Pix2PixModel(options)
+            if isinstance(model.netG, torch.nn.DataParallel):
+                model.netG = model.netG.module
+            model.netG.load_state_dict(loaded[0])
+            #model.netD.load_state_dict(loaded[1]) # fails -> model from PhotoSketch has to be used
+        elif model_type == 'DrawingGenerator' or dataset == 'LineDrawingsV1' or 'drawing' in name:
             print('Drawing model loaded')
             model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
             model.load_state_dict(loaded)

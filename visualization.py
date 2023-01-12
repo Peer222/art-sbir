@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 
 import torch
+import torch.nn as nn
 from PIL import Image
 from PIL import ImageOps
 import torchvision.transforms as transforms
@@ -35,6 +36,8 @@ def plot(plt, file: Path=None) -> None:
     if not file:
         plt.show()
     else:
+        if not file.parent.is_dir():
+            file.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(fname=file, dpi=300)
         plt.close()
 
@@ -206,11 +209,52 @@ def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=Non
         show_retrieval_samples(inference_dict['sketch_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_sketches', title="Retrieval samples (Sketches)")
 
 
+### paper visuals
+
+# activation functions
+def plot_function(x_values, y_values, name, color=Color.BLUE, labels:Dict={'x':'x', 'y':'y'}, step_sizes:Dict={'x':1, 'y':1}, padding:Dict={'x':[0, 0], 'y':[1, 0]}):
+    plt.figure(figsize=(4, 2))
+
+    plt.plot(x_values, y_values, c=color)
+    ax = plt.gca()
+    ax.grid(True, color=Color.LIGHT_GREY, zorder=0)
+    ax.tick_params(direction="in", length=0)
+    ax.set_axisbelow(True)
+    seaborn.despine(left=True, bottom=True, right=True, top=True)
+
+    if labels:
+        plt.xlabel(labels['x'], labelpad=7, fontsize=10)
+        plt.ylabel(labels['y'], rotation=0, labelpad=7, fontsize=10)
+
+    plt.xticks(np.arange(min(x_values) - padding['x'][0], max(x_values)+1 + padding['x'][1], step_sizes['x']), fontsize=8)
+    plt.yticks(np.arange(round(min(y_values)) - padding['y'][0], round(max(y_values))+1 + padding['y'][1], step_sizes['y']), fontsize=8)
+
+    plt.axhline(0, color=Color.BLACK, linewidth=0.6, zorder=1)
+    plt.axvline(0, color=Color.BLACK, linewidth=0.6, zorder=1)
+
+    plt.tight_layout(pad=-5)
+    plot(plt, name)
+
+def sigmoid():
+    x_values = np.arange(-5, 5 + 0.1, 0.1)
+    y_values = [1 / (1 + np.e ** (-x)) for x in x_values]
+    plot_function(x_values, y_values, Path("../thesis/figures/foundations/sigmoid"), padding={'x':[0,0], 'y': [1, 1]})
+
+def relu():
+    x_values = [-5, 0, 5]
+    y_values = [0, 0, 5]
+    plot_function(x_values, y_values, Path("../thesis/figures/foundations/ReLU"))
+
+def gelu():
+    x_values = np.arange(-5, 5 + 0.1, 0.1)
+    y_values = nn.GELU()(torch.Tensor(x_values)).tolist()
+    plot_function(x_values, y_values, Path("../thesis/figures/foundations/GELU"))
+
 if __name__ == '__main__':
     #show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', type=Path)
-    parser.add_argument('-m', '--method', default='visualize', choices=['visualize'])
+    parser.add_argument('-m', '--method', default='visualize', choices=['visualize', 'sigmoid', 'relu', 'gelu'])
     args = parser.parse_args()
 
     if args.method == 'visualize':
@@ -224,3 +268,6 @@ if __name__ == '__main__':
                 inference_dict = json.load(f)
 
         visualize(args.path, training_dict, inference_dict)
+
+    else:
+        eval(args.method)()

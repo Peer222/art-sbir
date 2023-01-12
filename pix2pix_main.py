@@ -7,6 +7,9 @@ import os
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+from torchvision.utils import save_image
+from torchvision import transforms
+import torchvision.transforms.functional as TF
 
 #import pix2pix_utils
 import pix2pix_model
@@ -89,6 +92,45 @@ def train_pix2pix(model, dataloader_train, dataloader_test, opt, data_dict):
 
     return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
 
+def inference(model, dataloader, opt, result_path:Path):
+    if not result_path.is_dir():
+        result_path.mkdir(parents=True, exist_ok=True)
+    #samples = []
+    model.eval() # can be turned of for experiments (dropout)
+    with torch.inference_mode():
+        for i, data in tqdm(enumerate(dataloader)):
+            # convert kaggle img only format to pix2pix input
+            #print(i, data['path'],f"mean: {torch.mean(data['image'])}", f"std: {torch.std(data['image'])}", f"min: {torch.min(data['image'])}", f"max: {torch.max(data['image'])}")
+            #converted_data = {'A':transform_pix2pix((1 - torch.std(data['image'])) * 10)(data['image']), 'B': transform_pix2pix((1 - torch.std(data['image'])) * 10)(data['image']), 'img_paths':data['path']}
+            converted_data = {'A':data['image'], 'B': data['image'], 'img_paths':data['path']}
+
+            model.set_input(converted_data)
+            model.forward()
+
+            visuals = model.get_current_visuals() # ordered dict with ['real_A', 'fake_B', 'real_B']
+
+            #visuals = utils.convert_pix2pix_to_255(visuals)
+
+            save_image(visuals['fake_B'].cpu(), result_path / f"{data['name'][0]}.png")
+            
+            #samples.append([visuals['real_A'].cpu(), visuals['fake_B'].cpu(), visuals['real_B'].cpu()])
+            #if i > 15: break
+
+    #visualization.show_triplets(samples, result_path / f'samples_inference.png', mode='image')
+
+
+class ContrastTransform:
+    def __init__(self, contrast_factor):
+        self.contrast_factor = contrast_factor
+    def __call__(self, x):
+        return TF.adjust_contrast(x, self.contrast_factor)
+
+def transform_pix2pix(contrast:float=1, to_grayscale:bool=False):
+        # from pix2pix
+        #transformations = [transforms.ToTensor(), ContrastTransform(6), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+        transformations = [transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC), transforms.ToTensor(), ContrastTransform(contrast), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+        transformations += [transforms.Grayscale(1)] if to_grayscale else []
+        return transforms.Compose(transformations)
 
 if __name__ == '__main__':
 
@@ -114,7 +156,7 @@ if __name__ == '__main__':
         'ndf': 64,
         'n_layers_D': 3, # default (not used if netD == basic)
         'netD': 'basic', # default for pix2pix (patchGAN)
-        'netG': 'DrawingGenerator', #'unet_256', # default for pix2pix
+        'netG': 'resnet_9blocks', #'DrawingGenerator', #'unet_256', # default for pix2pix
         'norm': 'batch', # default for pix2pix -> 'instance' may be better (CycleGAN)
         'pool_size': 0,  # default for pix2pix (train)
         'gan_mode': 'vanilla',  # default for pix2pix (train)
@@ -139,15 +181,20 @@ if __name__ == '__main__':
 
 
 
+    # only loads generator from state dict
+    model = utils.load_model('pix2pix_models', model_type='Pix2Pix', options=options) #pix2pix_model.Pix2PixModel(options)
 
-    model = pix2pix_model.Pix2PixModel(options)
+    #train_dataset, test_dataset = data_preparation.get_datasets('SketchyPix2Pix', size=DATASET_SIZE)
+    train_dataset, test_dataset = data_preparation.get_datasets('KaggleDatasetImgOnlyV1', img_type='images', size=DATASET_SIZE, transform=transform_pix2pix(6))
 
-    train_dataset, test_dataset = data_preparation.get_datasets('SketchyPix2Pix', size=DATASET_SIZE)
-
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=True)
-    test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE_TEST, num_workers=min(4, os.cpu_count()), shuffle=True)
+    #train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=True)
+    train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE_TEST, num_workers=min(4, os.cpu_count()), shuffle=False)
+    test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE_TEST, num_workers=min(4, os.cpu_count()), shuffle=False)
 
     # optimizer defined in Pix2PixModel
 
-    training_dict = train_pix2pix(model, train_dataloader, test_dataloader, options, train_dataset.state_dict)
+    #training_dict = train_pix2pix(model, train_dataloader, test_dataloader, options, train_dataset.state_dict)
+
+    inference(model, test_dataloader, options, Path("./data/kaggle/photo_sketch"))
+    inference(model, train_dataloader, options, Path("./data/kaggle/photo_sketch"))
 
