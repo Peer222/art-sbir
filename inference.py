@@ -27,7 +27,7 @@ import utils
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # just one sketch per call - starts at 0 ?
-def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor) -> int:
+def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor, loss_type) -> int:
     if type(sketch_path) == str: sketch_path = Path(sketch_path)
 
     sketch_name = re.split('-', sketch_path.stem)
@@ -38,7 +38,12 @@ def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch
         print(f"No image found: {sketch_path} | {sketch_name}")
         return len(image_paths)
 
-    distances = utils.euclidean_distance(sketch_feature, image_features)
+    if loss_type == 'euclidean':
+        distances = utils.euclidean_distance(sketch_feature, image_features)
+    elif loss_type == 'cosine':
+        distances = utils.cosine_distance(sketch_feature, image_features)
+    else:
+        raise Exception(f"loss type not correct {loss_type}")
     _, indices = distances.topk(len(image_features), largest=False)
 
     try:
@@ -81,7 +86,7 @@ def compute_image_features(model, dataset, with_classification:bool) -> Tuple[Da
 
     return inference_dataset, image_features, feature_path
 
-def process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification):
+def process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification, loss_type):
     ranks = []
     mean_reciprocal_rank = 0
     k = 10
@@ -100,7 +105,7 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
             if with_classification: sketch_feature = model(tuple[0].to(device))[0] # tuple[0] = sketch
             else: sketch_feature = model(tuple[0].to(device)) # tuple[0] = sketch
 
-            rank = get_ranking_position(dataset.sketch_paths[i], inference_dataset.image_paths, sketch_feature, image_features)
+            rank = get_ranking_position(dataset.sketch_paths[i], inference_dataset.image_paths, sketch_feature, image_features, loss_type)
 
             # rank starts at 0
             ranks.append(rank + 1)
@@ -127,7 +132,7 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
 
 
 # dataset: test data, folder_name: if specified image_features will be loaded from file instead of computed
-def run_inference(model, dataset, folder_name:str=None) -> Dict:
+def run_inference(model, dataset, folder_name:str=None, loss_type='euclidean') -> Dict:
     start_time = timer()
 
     with_classification = 'with_classification' in type(model).__name__
@@ -142,12 +147,12 @@ def run_inference(model, dataset, folder_name:str=None) -> Dict:
 
     dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=0, shuffle=False)
 
-    inference_dict = process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification)
+    inference_dict = process_inference(model, dataset, inference_dataset, dataloader, image_features, start_time, with_classification, loss_type)
     inference_dict2 = {}
     if 'Kaggle' in dataset.state_dict['dataset'] or 'Mixed' in dataset.state_dict['dataset']:
         _, dataset2 = data_preparation.get_datasets('KaggleInferenceV1', sketch_type='sketches', transform=dataset.transform)
         dataloader2 = DataLoader(dataset=dataset2, batch_size=1, num_workers=0, shuffle=False)
-        inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification)
+        inference_dict2 = process_inference(model, dataset2, inference_dataset, dataloader2, image_features, inference_dict['inference_time'], with_classification, loss_type)
     else: 
         inference_dict['image_features'] = feature_folder
         return inference_dict
@@ -213,9 +218,12 @@ if __name__ == "__main__":
 
         #print(test_dataset.state_dict)
 
-        feature_folder = inference_dict_['image_features'] if 'image_features' in inference_dict_.keys() else None
+        feature_folder = None#inference_dict_['image_features'] if 'image_features' in inference_dict_.keys() else None
+        loss_type = training_dict['loss_type'] if 'loss_type' in training_dict.keys() else 'euclidean'
 
-        inference_dict = run_inference(model, test_dataset, feature_folder)
+        print(loss_type)
+
+        inference_dict = run_inference(model, test_dataset, feature_folder, loss_type)
 
         with open(Path("results") / FOLDER / "inference_updated.json", "w") as f:
             json.dump(inference_dict, f, indent=4)

@@ -37,24 +37,24 @@ def euclidean_distance(t1:torch.Tensor, t2:torch.Tensor) -> float:
     return torch.sqrt(torch.sum( torch.pow(t2 - t1, 2), dim=2))
 """
 class TripletMarginLoss_with_classification(nn.Module):
-    def __init__(self, margin, classification_weight=0.5):
+    def __init__(self, margin, classification_weight=0.5, distance_f=euclidean_distance):
         super().__init__()
         self.classification_weight = classification_weight
         self.classification_weight2 = 0
 
-        self.triplet_loss = nn.TripletMarginLoss(margin=margin)
+        self.triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=distance_f)
         self.classification_loss = nn.CrossEntropyLoss()
 
     def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, labels):
         return self.triplet_loss(s_logits, p_logits, n_logits) + self.classification_weight * (self.classification_loss(cs_logits, labels) + self.classification_loss(cp_logits, labels))
 
 class TripletMarginLoss_with_classification2(nn.Module):
-    def __init__(self, margin, classification_weight=0.25, classification_weight2=0.5):  # styles, genres (same genre for pos and neg img)
+    def __init__(self, margin, classification_weight=0.25, classification_weight2=0.5, distance_f=euclidean_distance):  # styles, genres (same genre for pos and neg img)
         super().__init__()
         self.classification_weight = classification_weight
         self.classification_weight2 = classification_weight2
 
-        self.triplet_loss = nn.TripletMarginLoss(margin=margin)
+        self.triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=distance_f)
         self.classification_loss = nn.CrossEntropyLoss()
 
     def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, cs_logits2, cp_logits2, labels, labels2):
@@ -69,6 +69,10 @@ triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
 triplet_euclidean_loss_with_classification2 = TripletMarginLoss_with_classification2(margin=MARGIN, classification_weight=0, classification_weight2=0)
+
+triplet_cosine_loss = nn.TripletMarginWithDistanceLoss(margin=MARGIN, distance_function=cosine_distance)
+triplet_cosine_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN, distance_f=cosine_distance)
+triplet_cosine_loss_with_classification2 = TripletMarginLoss_with_classification2(margin=MARGIN, distance_f=cosine_distance)
 
 
 def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:float=100):

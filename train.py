@@ -96,16 +96,18 @@ parser.add_argument('--feature_folder', default=None, help="If None image featur
 parser.add_argument("--no_training", action='store_true', help="If set no training will be executed")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
-parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'photo_sketch', 'combination'])
+parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'photo_sketch', 'combination', 'dilated_opensketch_drawings'])
+parser.add_argument('--loss_type', default='euclidean', choices=['euclidean', 'cosine'])
 
 args = parser.parse_args()
 
-if args.sketch_type == 'combination': args.sketch_type = ['contour_drawings', 'opensketch_drawings']
+if args.sketch_type == 'combination': args.sketch_type = ['contour_drawings', 'opensketch_drawings', 'dilated_opensketch_drawings']
 
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size
 LEARNING_RATE = args.learning_rate # 5 * 10-4 used by clip with adam
 WEIGHT_DECAY = args.weight_decay
+LOSS_TYPE = args.loss_type
 
 MODEL = args.model
 DATASET = args.dataset
@@ -135,13 +137,20 @@ optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE, weight
 
 with_classification = 'with_classification' in type(model).__name__ and 'V2' in train_dataset.state_dict['dataset']
 print("with classification: ", with_classification)
-if with_classification: 
-    if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification
-    elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification2
-else: loss_fn = utils.triplet_euclidean_loss
+
+if LOSS_TYPE == 'euclidean':
+    if with_classification: 
+        if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification
+        elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification2
+    else: loss_fn = utils.triplet_euclidean_loss
+elif LOSS_TYPE == 'cosine':
+    if with_classification: 
+        if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_cosine_loss_with_classification
+        elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_cosine_loss_with_classification2
+    else: loss_fn = utils.triplet_cosine_loss
 
 param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE, "weight_decay": WEIGHT_DECAY, "optimizer": type(optimizer).__name__,
-            "loss_fn": type(loss_fn).__name__, "loss_margin": utils.MARGIN}
+            "loss_fn": type(loss_fn).__name__, "loss_margin": utils.MARGIN, "loss_type": LOSS_TYPE}
 if with_classification:
     param_dict['loss_weights'] = [loss_fn.classification_weight, loss_fn.classification_weight2]
 
@@ -152,7 +161,7 @@ print(data_dict, flush=True)
 
 if not args.no_training: training_dict = triplet_train(model, EPOCHS, train_dataloader, test_dataloader, loss_fn, optimizer, with_classification)
 
-if args.inference: inference_dict = inference.run_inference(model, test_dataset, args.feature_folder)
+if args.inference: inference_dict = inference.run_inference(model, test_dataset, args.feature_folder, LOSS_TYPE)
 
 # saves model and/or dictionaries
 folder = utils.save_model(model, data_dict, training_dict, param_dict, inference_dict)

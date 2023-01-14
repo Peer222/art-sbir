@@ -91,7 +91,8 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     ax.grid(True, color=Color.LIGHT_GREY)
     ax.tick_params(direction="in", length=0)
     ax.set_axisbelow(True)
-    ax.set_xlim(xmin=0)
+    #ax.set_xlim(xmin=0)
+    ax.set_xticks(np.arange(0, len(epochs) + 1, 1))
     seaborn.despine(left=True, bottom=True, right=True, top=True)
     #plt.grid(visible=True, color=Color.LIGHT_GREY)
 
