@@ -195,6 +195,9 @@ if __name__ == "__main__":
         with open(Path("results") / FOLDER / "training.json", 'r') as f:
             training_dict = json.load(f)
 
+        with open(Path("results") / FOLDER / "training_params.json", "r") as f:
+            param_dict = json.load(f)
+
         inference_file = "inference_updated.json" if (Path("results") / FOLDER / "inference_updated.json").is_file() else "inference.json"
         print(inference_file)
         with open(Path("results") / FOLDER / inference_file, 'r') as f:
@@ -219,7 +222,7 @@ if __name__ == "__main__":
         #print(test_dataset.state_dict)
 
         feature_folder = None#inference_dict_['image_features'] if 'image_features' in inference_dict_.keys() else None
-        loss_type = training_dict['loss_type'] if 'loss_type' in training_dict.keys() else 'euclidean'
+        loss_type = param_dict['loss_type'] if 'loss_type' in param_dict.keys() else 'euclidean'
 
         print(loss_type)
 
