@@ -79,7 +79,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
                     for batch, tuple in enumerate(test_dataloader): # removed tqdm
                         itest_loss += get_loss(loss_fn, model, elements)
                         if batch >= itest_size: break
-                itest_losses.append(itest_loss / itest_size)
+                itest_losses.append(itest_loss.item() / itest_size)
                 model.train()
 
         # testing batch_loop
