@@ -17,6 +17,7 @@ import models
 import pix2pix_model
 from drawing_utils.model import DrawingGenerator
 from pix2pix_model import Pix2PixModel
+from artwork_gen_utils import net
 
 def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
     compare = lambda path: path.stem == sketch_name
@@ -27,7 +28,16 @@ def find_image_index(image_paths:List[Path], sketch_name:str) -> int:
 # loss
 # https://pytorch.org/docs/stable/generated/torch.nn.TripletMarginWithDistanceLoss.html#torch.nn.TripletMarginWithDistanceLoss
 
-cosine_distance = nn.CosineSimilarity(dim=1) #not tested
+class CosineLoss(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cosine_similarity = nn.CosineSimilarity(dim=1)
+
+    def forward(self, sketch_tensor, image_tensor):
+        # cosine similarity between -1 and 1 with 1 = equal and -1 opposite -> similar if value is small (*-1) and has be positive (+1)
+        return (self.cosine_similarity(sketch_tensor, image_tensor) * -1) + 1
+
+cosine_distance = CosineLoss()#nn.CosineSimilarity(dim=1)
 
 euclidean_distance = nn.PairwiseDistance(p=2, keepdim=False)
 """
@@ -119,6 +129,8 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
     path = Path("models/") / name
     if path.is_dir() and model_type == 'Pix2Pix':
         loaded = [torch.load(path / 'latest_net_G.pth'), torch.load(path / 'latest_net_D.pth')]
+    elif path.is_dir() and model_type == 'AdaIN':
+        loaded = [torch.load(path / 'vgg_normalised.pth'), torch.load(path / 'decoder.pth')]
     else:
         loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
@@ -134,6 +146,15 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
                 model.netG = model.netG.module
             model.netG.load_state_dict(loaded[0])
             #model.netD.load_state_dict(loaded[1]) # fails -> model from PhotoSketch has to be used
+        elif model_type == 'AdaIN':
+            decoder = net.decoder
+            vgg = net.vgg
+            decoder.load_state_dict(loaded[1])
+            vgg.load_state_dict(loaded[0])
+            vgg = nn.Sequential(*list(vgg.children())[:31])
+            print(f"Model {name} loaded", flush=True)
+            return {'encoder': vgg, 'decoder': decoder}
+
         elif model_type == 'DrawingGenerator' or dataset == 'LineDrawingsV1' or 'drawing' in name:
             print('Drawing model loaded')
             model = DrawingGenerator(input_nc=3, output_nc=1, n_residual_blocks=3, sigmoid=True)
