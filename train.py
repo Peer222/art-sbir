@@ -42,10 +42,17 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
     train_losses = []
     test_losses = []
 
+    iteration_loss_frequency = 10000 // train_dataloader.batch_size if epochs <= 6 else 0
+    itest_size = 1000 // test_dataloader.batch_size
+    itrain_losses = []
+    itest_losses = []
+
     for epoch in tqdm(range(epochs), desc="Epochs"):
 
         train_loss = 0
         test_loss = 0
+
+        itrain_loss = 0
 
         # training batch loop
         model.train()
@@ -62,6 +69,19 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
 
             train_loss += loss
 
+            if iteration_loss_frequency and batch % iteration_loss_frequency == 0:
+                itrain_losses.append((train_loss.item() - itrain_loss) / iteration_loss_frequency)
+                itrain_loss = train_loss.item()
+
+                itest_loss = 0
+                model.eval()
+                with torch.inference_mode():
+                    for batch, tuple in enumerate(test_dataloader): # removed tqdm
+                        itest_loss += get_loss(loss_fn, model, elements)
+                        if batch >= itest_size: break
+                itest_losses.append(itest_loss / itest_size)
+                model.train()
+
         # testing batch_loop
         model.eval()
         with torch.inference_mode():
@@ -75,7 +95,7 @@ def triplet_train(model:nn.Module, epochs:int, train_dataloader:DataLoader, test
 
         print(f"Epoch {epoch+1} - Train loss: {train_losses[epoch]:.5f} | Test loss: {test_losses[epoch]:.5f}", flush=True)
 
-    return {"train_losses": train_losses, "test_losses": test_losses, "training_time": timer() - start_time}
+    return {"train_losses": train_losses, "test_losses": test_losses, "itrain_losses": itrain_losses, "itest_losses":itest_losses, "iteration_loss_frequency": iteration_loss_frequency, "iteration_test_size": itest_size, "training_time": timer() - start_time}
 
 
 # command line tool
@@ -95,7 +115,7 @@ parser.add_argument("--inference", action="store_true", help="If set extended in
 parser.add_argument('--feature_folder', default=None, help="If None image features will be computed for inference otherwise loaded from data/image_features/[feature_folder]")
 parser.add_argument("--no_training", action='store_true', help="If set no training will be executed")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
-parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images'], help="Image type")
+parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images', 'artworks'], help="Image type")
 parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'photo_sketch', 'combination', 'dilated_opensketch_drawings'])
 parser.add_argument('--loss_type', default='euclidean', choices=['euclidean', 'cosine'])
 

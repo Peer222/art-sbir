@@ -199,6 +199,7 @@ def add_frame(ax, space=0, linewidth=0.4, color=Color.BLACK):
 
 def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=None):
     if training_dict: show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
+    if training_dict and training_dict['iteration_loss_frequency'] > 0: show_loss_curves(training_dict["itrain_losses"], training_dict["itest_losses"], filename=folder_path / "loss_curves_iter")
     if len(inference_dict.keys()) > 3: # kaggle inference on drawings and sketches
         show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
         show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')

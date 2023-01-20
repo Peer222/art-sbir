@@ -169,6 +169,11 @@ class SketchyDatasetV1(RetrievalDataset):
         for cls in self.classes:
             self.sketch_paths += list( (self.path / ("sketches_" + self.sketch_format)).glob(f"{cls}/*.{self.sketch_format}") )
 
+        if self.img_type == "artworks":
+            print("artworks paths loaded")
+            self.photo_paths = self.sketch_paths
+            return
+
         for path in self.sketch_paths:
             filename = re.search('n\d+_\d+', path.name).group() + '.' + self.img_format
             photo_path = self.path / self.img_type / path.parent.name / filename 
@@ -716,13 +721,14 @@ class KaggleInferenceDatasetV1(Dataset):
                 "transform": str(self.transform), "date": "31.12.2022"}
 
 class MixedDataset(Dataset):
-    def __init__(self, mode='train', sketch_type="contour_drawings", size=1.0, transform=transformations.get_transformation()[0], version='V1'):
+    def __init__(self, mode='train', sketch_type="contour_drawings", sketchy_img_type="photos", size=1.0, transform=transformations.get_transformation()[0], version='V1'):
         super().__init__()
         self.mode, self.size, self.transform, self.version = mode, size, transform, version
         self.sketch_type = sketch_type
+        self.sketchy_img_type = sketchy_img_type
 
         self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size, sketch_type=self.sketch_type)
-        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, transform=self.transform)
+        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, img_type=sketchy_img_type, transform=self.transform)
 
         # only needed for inference
         self.photo_paths = self.kaggle.photo_paths
@@ -740,7 +746,7 @@ class MixedDataset(Dataset):
 
     @property
     def state_dict(self):
-        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "sketch_type": self.sketch_type, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
+        return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "sketch_type": self.sketch_type, "sketchy_img_type": self.sketchy_img_type, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
 
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
@@ -781,11 +787,11 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
         
     elif dataset == 'MixedDatasetV1':
-        train_dataset = MixedDataset(mode='train', size=size, sketch_type=sketch_type, version='V1')
-        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, version='V1')
+        train_dataset = MixedDataset(mode='train', size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V1')
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V1')
     elif dataset == 'MixedDatasetV2':
-        train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, version='V2')
-        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, version='V2')
+        train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2')
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2')
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
