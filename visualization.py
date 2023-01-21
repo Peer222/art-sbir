@@ -76,15 +76,18 @@ def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
     plot(plt, filename)
 
 
-def show_loss_curves(train_losses:List[float], test_losses:List[float], filename:Path=None, title="Loss curves") -> None:
-    epochs = np.arange(1, len(train_losses) + 1, 1)
+def show_loss_curves(train_losses:List[float], test_losses:List[float], filename:Path=None, title="Loss curves", x_label='Epoch') -> None:
+    if x_label == 'Iteration':
+        epochs = np.arange(10000, (len(train_losses) + 1) * 10000, 10000)
+    else:
+        epochs = np.arange(1, len(train_losses) + 1, 1)
     fig, ax = plt.subplots(figsize=(7,5))
 
     ax.plot(epochs, train_losses, c=Color.YELLOW, label="Train loss")
     ax.plot(epochs, test_losses, c=Color.BLUE, label="Test loss")
 
     plt.title(title)
-    plt.xlabel("Epoch")
+    plt.xlabel(x_label)
     plt.ylabel("Loss")
     plt.legend()
 
@@ -92,7 +95,8 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     ax.tick_params(direction="in", length=0)
     ax.set_axisbelow(True)
     #ax.set_xlim(xmin=0)
-    ax.set_xticks(np.arange(0, len(epochs) + 1, 1))
+    if x_label != 'Iteration':
+        ax.set_xticks(np.arange(0, len(epochs) + 1, 1))
     seaborn.despine(left=True, bottom=True, right=True, top=True)
     #plt.grid(visible=True, color=Color.LIGHT_GREY)
 
@@ -199,7 +203,7 @@ def add_frame(ax, space=0, linewidth=0.4, color=Color.BLACK):
 
 def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=None):
     if training_dict: show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
-    if training_dict and training_dict['iteration_loss_frequency'] > 0: show_loss_curves(training_dict["itrain_losses"], training_dict["itest_losses"], filename=folder_path / "loss_curves_iter")
+    if training_dict and training_dict['iteration_loss_frequency'] > 0: show_loss_curves(training_dict["itrain_losses"], training_dict["itest_losses"], filename=folder_path / "loss_curves_iter", x_label="Iteration")
     if len(inference_dict.keys()) > 3: # kaggle inference on drawings and sketches
         show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
         show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')

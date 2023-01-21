@@ -169,13 +169,11 @@ class SketchyDatasetV1(RetrievalDataset):
         for cls in self.classes:
             self.sketch_paths += list( (self.path / ("sketches_" + self.sketch_format)).glob(f"{cls}/*.{self.sketch_format}") )
 
-        if self.img_type == "artworks":
-            print("artworks paths loaded")
-            self.photo_paths = self.sketch_paths
-            return
-
         for path in self.sketch_paths:
-            filename = re.search('n\d+_\d+', path.name).group() + '.' + self.img_format
+            if self.img_type == "artworks":
+                filename = path.stem + self.img_format
+            else:
+                filename = re.search('n\d+_\d+', path.name).group() + '.' + self.img_format
             photo_path = self.path / self.img_type / path.parent.name / filename 
             self.photo_paths.append(Path(photo_path))
 
