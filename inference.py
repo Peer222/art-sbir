@@ -55,8 +55,11 @@ def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch
     return ranking
 
 # just one sketch per call
-def get_topk_images(k:int, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor) -> List[Tuple[str, float]]:
-    distances = utils.euclidean_distance(sketch_feature, image_features)
+def get_topk_images(k:int, image_paths:List[Path], sketch_feature:torch.Tensor, image_features:torch.Tensor, loss_type) -> List[Tuple[str, float]]:
+    if loss_type == 'euclidean':
+        distances = utils.euclidean_distance(sketch_feature, image_features)
+    elif loss_type == 'cosine':
+        distances = utils.cosine_distance(sketch_feature, image_features)
     values, indices = distances.topk(k, largest=False)
 
     image_paths = [str(image_paths[i]) for i in indices]
@@ -113,7 +116,7 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
             if rank < 10: topk_acc[rank:] += 1
 
             if random_indices.count(i) > 0:
-                retrieval_samples.append({str(dataset.sketch_paths[i]): get_topk_images(k, inference_dataset.image_paths, sketch_feature, image_features)})
+                retrieval_samples.append({str(dataset.sketch_paths[i]): get_topk_images(k, inference_dataset.image_paths, sketch_feature, image_features, loss_type)})
 
     rankings = pd.DataFrame(ranks, columns=['rank'])
     mean_reciprocal_rank /= len(dataset)
