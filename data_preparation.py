@@ -171,7 +171,7 @@ class SketchyDatasetV1(RetrievalDataset):
 
         for path in self.sketch_paths:
             if self.img_type == "artworks":
-                filename = path.stem + self.img_format
+                filename = path.stem + '.' + self.img_format
             else:
                 filename = re.search('n\d+_\d+', path.name).group() + '.' + self.img_format
             photo_path = self.path / self.img_type / path.parent.name / filename 
