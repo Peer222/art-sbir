@@ -51,8 +51,9 @@ class TripletMarginLoss_with_classification(nn.Module):
         super().__init__()
         self.classification_weight = classification_weight
         self.classification_weight2 = 0
+        self.margin = margin
 
-        self.triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=distance_f)
+        self.triplet_loss = nn.TripletMarginWithDistanceLoss(margin=self.margin, distance_function=distance_f)
         self.classification_loss = nn.CrossEntropyLoss()
 
     def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, labels):
@@ -63,8 +64,9 @@ class TripletMarginLoss_with_classification2(nn.Module):
         super().__init__()
         self.classification_weight = classification_weight
         self.classification_weight2 = classification_weight2
+        self.margin = margin
 
-        self.triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=distance_f)
+        self.triplet_loss = nn.TripletMarginWithDistanceLoss(margin=self.margin, distance_function=distance_f)
         self.classification_loss = nn.CrossEntropyLoss()
 
     def forward(self, s_logits, p_logits, n_logits, cs_logits, cp_logits, cs_logits2, cp_logits2, labels, labels2):
@@ -75,6 +77,7 @@ class TripletMarginLoss_with_classification2(nn.Module):
 MARGIN = 0.2 # Sketching without Worrying
 
 #triplet_euclidean_loss = nn.TripletMarginWithDistanceLoss(margin=MARGIN, distance_function=euclidean_distance)
+"""
 triplet_euclidean_loss = nn.TripletMarginLoss(margin=MARGIN)
 
 triplet_euclidean_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN)
@@ -83,6 +86,7 @@ triplet_euclidean_loss_with_classification2 = TripletMarginLoss_with_classificat
 triplet_cosine_loss = nn.TripletMarginWithDistanceLoss(margin=MARGIN, distance_function=cosine_distance)
 triplet_cosine_loss_with_classification = TripletMarginLoss_with_classification(margin=MARGIN, distance_f=cosine_distance)
 triplet_cosine_loss_with_classification2 = TripletMarginLoss_with_classification2(margin=MARGIN, distance_f=cosine_distance)
+"""
 
 
 def process_losses(loss_tracker:Dict, loss:Dict, size:int, method:str, lambda_:float=100):

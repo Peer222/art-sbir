@@ -162,17 +162,17 @@ print("with classification: ", with_classification)
 
 if LOSS_TYPE == 'euclidean':
     if with_classification: 
-        if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification
-        elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_euclidean_loss_with_classification2
-    else: loss_fn = utils.triplet_euclidean_loss
+        if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification(margin=utils.MARGIN)
+        elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification2(margin=utils.MARGIN, classification_weight=0, classification_weight2=0)
+    else: loss_fn = nn.TripletMarginLoss(margin=utils.MARGIN) # triplet_euclidean_loss
 elif LOSS_TYPE == 'cosine':
     if with_classification: 
-        if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_cosine_loss_with_classification
-        elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.triplet_cosine_loss_with_classification2
-    else: loss_fn = utils.triplet_cosine_loss
+        if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification(margin=utils.MARGIN, distance_f=utils.cosine_distance)
+        elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification2(margin=utils.MARGIN, distance_f=utils.cosine_distance)
+    else: loss_fn = utils.nn.TripletMarginWithDistanceLoss(margin=utils.MARGIN, distance_function=utils.cosine_distance) #triplet_cosine_loss
 
 param_dict = {"model": MODEL, "trained_layers": model.trained_layers, "dataset": DATASET, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "learning_rate": LEARNING_RATE, "weight_decay": WEIGHT_DECAY, "optimizer": type(optimizer).__name__,
-            "loss_fn": type(loss_fn).__name__, "loss_margin": utils.MARGIN, "loss_type": LOSS_TYPE}
+            "loss_fn": type(loss_fn).__name__, "loss_margin": loss_fn.margin, "loss_type": LOSS_TYPE}
 if with_classification:
     param_dict['loss_weights'] = [loss_fn.classification_weight, loss_fn.classification_weight2]
 
