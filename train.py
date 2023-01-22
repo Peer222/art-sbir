@@ -116,8 +116,9 @@ parser.add_argument('--feature_folder', default=None, help="If None image featur
 parser.add_argument("--no_training", action='store_true', help="If set no training will be executed")
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images', 'artworks'], help="Image type")
-parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'photo_sketch', 'combination', 'dilated_opensketch_drawings'])
+parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'photo_sketch', 'adain_sketches', 'combination', 'dilated_opensketch_drawings'])
 parser.add_argument('--loss_type', default='euclidean', choices=['euclidean', 'cosine'])
+parser.add_argument('--loss_margin', type=float, default=0.2)
 
 args = parser.parse_args()
 
@@ -128,6 +129,7 @@ BATCH_SIZE = args.batch_size
 LEARNING_RATE = args.learning_rate # 5 * 10-4 used by clip with adam
 WEIGHT_DECAY = args.weight_decay
 LOSS_TYPE = args.loss_type
+utils.MARGIN = args.loss_margin
 
 MODEL = args.model
 DATASET = args.dataset

@@ -31,7 +31,9 @@ def get_ranking_position(sketch_path:Path or str, image_paths:List[Path], sketch
     if type(sketch_path) == str: sketch_path = Path(sketch_path)
 
     sketch_name = re.split('-', sketch_path.stem)
-    if len(sketch_name) <= 2: sketch_name = sketch_name[0] # sketchy sketch names have format id-number.png | kaggle sketch names id.png
+    if len(sketch_name) <= 2: 
+        if "artworks" in str(image_paths[0]): sketch_name = sketch_path.stem
+        else: sketch_name = sketch_name[0] # sketchy sketch names have format id-number.png | kaggle sketch names id.png
     elif len(sketch_name) == 3: sketch_name = sketch_name[1] # sketchit sketch names have format index-id-random_number.png
     pos_img_index = utils.find_image_index(image_paths, sketch_name)
     if pos_img_index < 0:
@@ -215,8 +217,10 @@ if __name__ == "__main__":
 
 
         # options have to be added
+        DATASET = "MixedDatasetV2"
+        sketch_type = "contour_drawings"
         if 'Mixed' in DATASET:
-            _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'])
+            _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'], sketch_type=sketch_type)
         elif 'Kaggle' in DATASET:
             _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'], sketch_type=data_dict['sketch_type'], img_type=data_dict['img_type'], img_format=data_dict['img_format'], transform=model.transform)
         elif 'Sketchy' in DATASET:

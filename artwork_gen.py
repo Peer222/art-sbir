@@ -59,6 +59,7 @@ decoder.to(device)
 content_tf = test_transform(256, False)
 style_tf = test_transform(256, False)
 
+"""
 content_dataset = data_preparation.SketchyDatasetV1(size=1.0, transform=transforms.Lambda(lambda x: x), _sample=False)
 
 style_dataset = data_preparation.get_datasets(dataset='KaggleDatasetImgOnlyV1', size=1.0, transform=style_tf)[0] # !!!! change !!!!
@@ -85,3 +86,30 @@ with torch.inference_mode():
         output_img = style_transfer(vgg, decoder, content_img, style_img, 1.0).cpu()
 
         save_image(output_img, str(folder / f"{img_path.stem}.jpg"))
+"""
+
+content_dataset1 = data_preparation.KaggleDatasetImgOnlyV1(size=1.0, mode="train", transform=transforms.Lambda(lambda x: x))
+content_dataset2 = data_preparation.KaggleDatasetImgOnlyV1(size=1.0, mode="test", transform=transforms.Lambda(lambda x: x))
+style_dataset = data_preparation.get_datasets(dataset="Sketchy", size=1.0, transform=style_tf)
+
+path = Path("data/kaggle/adain_sketches")
+if not path.is_dir():
+    path.mkdir(parents=True, exist_ok=True)
+
+photo_paths = content_dataset1.photo_paths + content_dataset2.photo_paths
+
+with torch.inference_mode():
+    for i in tqdm(range(len(photo_paths))):
+        img_path = photo_paths[i]
+
+        content_img = content_tf(Image.open(photo_paths[i]).convert('RGB'))
+        content_img = content_img.to(device).unsqueeze(0)
+
+        index = random.randint(0, len(style_dataset) - 1)
+        style_img = style_dataset.__getitem__(index)[0][0]
+
+        style_img = style_img.to(device).unsqueeze(0)
+
+        output_img = style_transfer(vgg, decoder, content_img, style_img, 1.0).cpu()
+
+        save_image(output_img, str(path / f"{img_path.stem}.jpg"))
