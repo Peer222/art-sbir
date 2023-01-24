@@ -117,6 +117,7 @@ parser.add_argument("--no_training", action='store_true', help="If set no traini
 parser.add_argument("-w", "--weight_decay", type=float, default=0.002, help="Weight decay for optimizer")
 parser.add_argument('--img_type', type=str, default='photos', choices=['photos', 'anime_drawings', 'contour_drawings', 'images', 'artworks'], help="Image type")
 parser.add_argument('--sketch_type', default='sketches_png', choices=['sketches_png', 'contour_drawings', 'opensketch_drawings', 'photo_sketch', 'adain_sketches', 'combination', 'dilated_opensketch_drawings'])
+parser.add_argument('--sketch_format', default='png', choices=['png', 'jpg'])
 parser.add_argument('--loss_type', default='euclidean', choices=['euclidean', 'cosine'])
 parser.add_argument('--loss_margin', type=float, default=0.2)
 
@@ -148,7 +149,7 @@ if 'drawings' in args.img_type: img_format = 'png'
 
 
 # options have to be added
-train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, sketch_type=args.sketch_type, img_type=args.img_type, img_format=img_format, transform=model.transform)
+train_dataset, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=args.dsize, sketch_type=args.sketch_type, sketch_format=args.sketch_format, img_type=args.img_type, img_format=img_format, transform=model.transform)
 
 train_dataloader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=True)
 test_dataloader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=min(4, os.cpu_count()), shuffle=False)

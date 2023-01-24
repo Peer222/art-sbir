@@ -472,8 +472,11 @@ class KaggleDatasetImgOnlyV1(Dataset):
         super().__init__()
 
         self.img_format, self.img_type, self.transform, self.mode, self.size, self.seed = img_format, img_type, transform, mode, size, seed
-
-        self.image_path = Path(f'data/kaggle/{self.img_type}') #Path('../sketchit/public/paintings')
+        # server has cuda / pc not
+        if torch.cuda.is_available():
+            self.image_path = Path(f'data/kaggle/{self.img_type}')
+        else:
+            self.image_path = Path('../sketchit/public/paintings')
         if mode == 'train': self.image_path = Path('/nfs/data/iart/kaggle/img')
 
         self.image_data = self._load_img_data() # sequential
@@ -719,13 +722,13 @@ class KaggleInferenceDatasetV1(Dataset):
                 "transform": str(self.transform), "date": "31.12.2022"}
 
 class MixedDataset(Dataset):
-    def __init__(self, mode='train', sketch_type="contour_drawings", sketchy_img_type="photos", size=1.0, transform=transformations.get_transformation()[0], version='V1'):
+    def __init__(self, mode='train', sketch_type="contour_drawings", sketchy_img_type="photos", size=1.0, transform=transformations.get_transformation()[0], version='V1', sketch_format='png'):
         super().__init__()
         self.mode, self.size, self.transform, self.version = mode, size, transform, version
         self.sketch_type = sketch_type
         self.sketchy_img_type = sketchy_img_type
 
-        self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size, sketch_type=self.sketch_type)
+        self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size, sketch_type=self.sketch_type, sketch_format=sketch_format)
         self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, img_type=sketchy_img_type, transform=self.transform)
 
         # only needed for inference
@@ -785,11 +788,11 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
         
     elif dataset == 'MixedDatasetV1':
-        train_dataset = MixedDataset(mode='train', size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V1')
-        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V1')
+        train_dataset = MixedDataset(mode='train', size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V1', sketch_format=sketch_format)
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V1', sketch_format=sketch_format)
     elif dataset == 'MixedDatasetV2':
-        train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2')
-        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2')
+        train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2', sketch_format=sketch_format)
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2', sketch_format=sketch_format)
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)

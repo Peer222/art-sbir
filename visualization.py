@@ -157,18 +157,25 @@ def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:
 
         for j, ax in enumerate(axes_rows):
             if not j:
+                # drawings only available on server
+                if not torch.cuda.is_available() and  "drawings" in str(sketch_path):
+                    print("drawings skipped")
+                    return
                 sketch = Image.open(sketch_path)
                 ax.axis(False)
                 ax.imshow(sketch)
                 add_frame(ax)
             else:
                 image_path = Path(image_paths[j - 1][0])
+                if not torch.cuda.is_available() and "kaggle" in str(image_path):
+                    image_path = Path("../sketchit/public/paintings/") / image_path.name
                 image = Image.open(image_path)
 
                 ax.axis(False)
                 ax.imshow(image)
-            
-                if image_path.stem in sketch_path.stem:
+
+                sketch_name = sketch_path.stem.split("-")[1] if len(sketch_path.stem.split("-")) == 3 else sketch_path.stem.split("-")[0]
+                if image_path.stem.split('-')[0] == sketch_name:
                     add_frame(ax, space=60, linewidth=2.0, color=Color.GREEN)
 
 
