@@ -98,7 +98,7 @@ def process_inference(model, dataset, inference_dataset, dataloader, image_featu
     topk_acc = np.zeros(k)
 
     retrieval_samples = []
-    random.seed(10)
+    random.seed(11)
     random_indices = [random.randrange(0, len(dataset)) for _ in range(10)]
 
     image_features = image_features.to(device)

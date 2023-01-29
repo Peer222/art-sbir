@@ -728,8 +728,12 @@ class MixedDataset(Dataset):
         self.sketch_type = sketch_type
         self.sketchy_img_type = sketchy_img_type
 
-        self.kaggle = eval(f"AugmentedKaggleDataset{self.version}")(mode=self.mode, size=self.size, sketch_type=self.sketch_type, sketch_format=sketch_format)
-        self.sketchy = eval(f"SketchyDataset{self.version}")(mode=self.mode, size=self.size, img_type=sketchy_img_type, transform=self.transform)
+        sketchy_v, kaggle_v = self.version, self.version
+        if self.version == "V3":
+            sketchy_v, kaggle_v = "V2", "V1"
+
+        self.kaggle = eval(f"AugmentedKaggleDataset{kaggle_v}")(mode=self.mode, size=self.size, sketch_type=self.sketch_type, sketch_format=sketch_format)
+        self.sketchy = eval(f"SketchyDataset{sketchy_v}")(mode=self.mode, size=self.size, img_type=sketchy_img_type, transform=self.transform)
 
         # only needed for inference
         self.photo_paths = self.kaggle.photo_paths
@@ -793,6 +797,9 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset == 'MixedDatasetV2':
         train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2', sketch_format=sketch_format)
         test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V2', sketch_format=sketch_format)
+    elif dataset == 'MixedDatasetV3':
+        train_dataset = MixedDataset(mode='train',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V3', sketch_format=sketch_format)
+        test_dataset = MixedDataset(mode='test',size=size, sketch_type=sketch_type, sketchy_img_type=img_type, version='V3', sketch_format=sketch_format)
     elif dataset == 'QuickdrawV1':
         train_dataset = QuickDrawDatasetV1(mode='train', size=size)
         test_dataset = QuickDrawDatasetV1(mode='test', size=size)
