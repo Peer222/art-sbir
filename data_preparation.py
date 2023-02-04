@@ -756,6 +756,42 @@ class MixedDataset(Dataset):
     def state_dict(self):
         return {"dataset": f"{self.__class__.__name__}", "version": self.version, "img_number": len(self), "size": self.size, "mode": self.mode, "sketch_type": self.sketch_type, "sketchy_img_type": self.sketchy_img_type, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
 
+
+class CategorizedMixedDatasetV2(Dataset):
+    def __init__(self, mode='train', sketch_type="contour_drawings", sketchy_img_type="photos", size=1.0, transform=transformations.get_transformation()[0], sketch_format='png'):
+        super().__init__()
+        self.mode, self.size, self.transform = mode, size, transform
+        self.sketch_type = sketch_type
+        self.sketchy_img_type = sketchy_img_type
+
+        self.kaggle = AugmentedKaggleDatasetV2(mode=self.mode, size=self.size, sketch_type=self.sketch_type, sketch_format=sketch_format)
+        self.sketchy = SketchyDatasetV2(mode=self.mode, size=self.size, img_type=sketchy_img_type, transform=self.transform)
+
+        # only needed for inference
+        self.photo_paths = self.kaggle.photo_paths
+        self.sketch_paths = self.kaggle.sketch_paths
+
+        self.num_classes = len(self.kaggle.genres)
+
+    def __len__(self) -> int:
+        return 2 * max(len(self.sketchy), len(self.kaggle)) if self.mode == 'train' else len(self.sketch_paths)
+
+    def __getitem__(self, idx:int):
+        if self.mode == 'test': 
+            item = self.kaggle.__getitem__(idx)
+            item = item[0], item[1], item[2], item[4]
+        elif idx % 2 == 0:
+            item = self.kaggle.__getitem__( (idx // 2) % len(self.kaggle) )
+            item = item[0], item[1], item[2], item[4]
+        else:
+            item = self.sketchy.__getitem__( ((idx - 1) // 2) % len(self.sketchy) )[:3]
+            item = item[0], item[1], item[2], self.num_classes
+        return item
+    @property
+    def state_dict(self):
+        return {"dataset": f"{self.__class__.__name__}", "img_number": len(self), "size": self.size, "mode": self.mode, "num_classes": self.num_classes, "sketch_type": self.sketch_type, "sketchy_img_type": self.sketchy_img_type, "transform":str(self.transform), "kaggle": self.kaggle.state_dict, "sketchy": self.sketchy.state_dict}
+
+
 # returns train and test dataset
 def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png', img_format:str='jpg', sketch_type:str='placeholder', img_type:str='photos', split_ratio:float=0.1, seed:int=42, transform=transforms.ToTensor(), max_erase_count=99999, only_valid=True):
 
@@ -793,7 +829,10 @@ def get_datasets(dataset:str="Sketchy", size:float=0.1, sketch_format:str='png',
     elif dataset in ['KaggleInferenceV1', 'KaggleInferencedatasetV1']:
         train_dataset = None
         test_dataset = KaggleInferenceDatasetV1(sketch_type, sketch_format, transform)
-        
+
+    elif dataset == "CategorizedMixedDatasetV2":
+        train_dataset = CategorizedMixedDatasetV2(mode='train', size=size, sketch_type=sketch_type, sketchy_img_type=img_type, sketch_format=sketch_format)
+        test_dataset = CategorizedMixedDatasetV2(mode='test', size=size, sketch_type=sketch_type, sketchy_img_type=img_type, sketch_format=sketch_format)
     elif "MixedDataset" in dataset:
         version = dataset[-2:]
         print(version)

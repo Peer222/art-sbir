@@ -185,6 +185,16 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
                 model.load_state_dict(loaded, strict=False)
                 model.classifier = nn.Linear(1024, 70)
                 print("Normal load failed - Firstly loaded classifier-125 changed to classifier-70")
+        elif model_type == 'ModifiedResNet_with_classification' and dataset == 'CategorizedMixedDatasetV2':
+            try:
+                model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=33) # genres
+                model.load_state_dict(loaded, strict=False)
+                print("Normally loaded from state dict")
+            except:
+                model = models.ModifiedResNet_with_classification(layers=(3, 4, 6, 3), output_dim=1024, num_classes=125) # genres
+                model.load_state_dict(loaded, strict=False)
+                model.classifier = nn.Linear(1024, 33)
+                print("Normal load failed - Firstly loaded classifier-125 changed to classifier-33")
         else:
             raise Exception(f"No model found with {model_type} and {dataset}")
 
