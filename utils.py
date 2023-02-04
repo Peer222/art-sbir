@@ -139,7 +139,7 @@ def load_model(name:str, dataset:str=None, model_type:str=None, max_seq_len=0, o
         loaded = torch.load(path, map_location=torch.device('cpu'))
     model = None
 
-    datasetsV1 = [ 'SketchyV1', 'SketchyDatasetV1', 'Sketchy', 'KaggleV1', 'KaggleDatasetV1', 'Kaggle', 'AugmentedKaggleV1', 'AugmentedKaggleDatasetV1',  'MixedDatasetV1',  'MixedDatasetV2', 'MixedDatasetV3'] # MixedDatasetV2 because only negative image selection is used (no labels)
+    datasetsV1 = [ 'SketchyV1', 'SketchyDatasetV1', 'Sketchy', 'KaggleV1', 'KaggleDatasetV1', 'Kaggle', 'AugmentedKaggleV1', 'AugmentedKaggleDatasetV1',  'MixedDatasetV1',  'MixedDatasetV2', 'MixedDatasetV3', 'MixedDatasetV4'] # MixedDatasetV2 because only negative image selection is used (no labels)
 
     if isinstance(loaded, dict) or isinstance(loaded, list):
         print("Dictionary used to load model")

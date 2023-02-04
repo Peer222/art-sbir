@@ -109,7 +109,7 @@ parser.add_argument("-b", "--batch_size", type=int, default=32, help="Set batch_
 parser.add_argument("-l", "--learning_rate", type=float, default=0.00001, help="Set learning rate")
 parser.add_argument("-m", "--model", type=str, default='openResNet50m.pth', help="Choose a model - default:openResNet50m.pth")
 parser.add_argument('--model_type', type=str, default='ModifiedResNet_with_classification', choices=['ModifiedResNet', 'ModifiedResNet_with_classification', 'DrawingGenerator', 'Photo2Sketch'], help='Type of model')
-parser.add_argument("-d", "--dataset", type=str, default='SketchyV1', choices=['SketchyV1', 'SketchyV2', 'KaggleV1', 'KaggleV2', 'AugmentedKaggleV1', 'AugmentedKaggleV2', 'MixedDatasetV1', 'MixedDatasetV2', 'MixedDatasetV3'], help="Choose a dataset")
+parser.add_argument("-d", "--dataset", type=str, default='SketchyV1', choices=['SketchyV1', 'SketchyV2', 'KaggleV1', 'KaggleV2', 'AugmentedKaggleV1', 'AugmentedKaggleV2', 'MixedDatasetV1', 'MixedDatasetV2', 'MixedDatasetV3', 'MixedDatasetV4'], help="Choose a dataset")
 parser.add_argument("-s", "--dsize", type=float, default=1.0, help="Fraction of dataset used during training and testing")
 parser.add_argument("--inference", action="store_true", help="If set extended inference will be executed after training")
 parser.add_argument('--feature_folder', default=None, help="If None image features will be computed for inference otherwise loaded from data/image_features/[feature_folder]")
