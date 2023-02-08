@@ -15,6 +15,10 @@ import json
 from pathlib import Path
 from typing import List, Tuple, Dict
 
+import semiSupervised_utils
+import utils
+import data_preparation
+
 class Color:
     BLACK = (0,0,0)
     BLUE = (55/256, 88/256, 136/256)
@@ -32,13 +36,13 @@ if not visual_path.is_dir():
 
 #plots figure or saves figure if filepath is specified
 def plot(plt, file: Path=None) -> None:
-    plt.tight_layout()
+    #plt.tight_layout()
     if not file:
         plt.show()
     else:
         if not file.parent.is_dir():
             file.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(fname=file, dpi=300)
+        plt.savefig(fname=file, dpi=300, bbox_inches='tight')
         plt.close()
 
 
@@ -117,24 +121,66 @@ def build_all_loss_curves(train_losses:Dict, test_losses:Dict, result_path:Path,
 
 
 def show_topk_accuracy(topk_acc:List[float], filename:Path=None, title:str=None) -> None:
-    labels = [f"top_{k}" for k in range(1, 11)]
+    labels = [f"top-{k}" for k in range(1, 11)]
 
     topk_acc = [x * 100 for x in topk_acc]
 
-    bar_labels = [f"{round(acc, 1):.1f} %" for acc in topk_acc]
+    bar_labels = [f"{round(acc, 1):.1f}" for acc in topk_acc]
 
-    fig, ax = plt.subplots(figsize=(9,5))
-    bars = ax.bar(labels, topk_acc, color=Color.BLUE)
-    ax.bar_label(bars, bar_labels)
+    plt.rcParams.update({'font.size': 16})
+    label_font = {'size':'13'}
+
+    fig, ax = plt.subplots(figsize=(10,4))
+    bars = ax.bar(labels, topk_acc, color=Color.BLUE, label="Sketches")
+    ax.bar_label(bars, bar_labels, padding=2, **label_font)
 
     if title: plt.title(title)
-    else: plt.title("Top_k accuracy")
+    #else: plt.title("Top-k accuracy")
     plt.ylabel("Accuracy (%)")
-    plt.xlabel("Top_k positions")
+    plt.xlabel("Top-k positions")
+    plt.legend()
 
     plt.ylim([0, 100])
 
     ax.grid(True, color=Color.LIGHT_GREY)
+    ax.tick_params(direction="in", length=0)
+    ax.set_axisbelow(True)
+    seaborn.despine(left=True, bottom=True, right=True, top=True)
+
+    plot(plt, filename)
+
+def show_compared_topk_accuracy(topk_acc:List[float], topk_acc2:List[float], filename:Path=None, title:str=None) -> None:
+    labels = [f"top-{k}" for k in range(1, 11)]
+
+    topk_acc = [x * 100 for x in topk_acc]
+    topk_acc2 = [x * 100 for x in topk_acc2]
+
+    bar_labels = [f"{round(acc, 1):.1f}" for acc in topk_acc]
+    bar_labels2 = [f"{round(acc, 1):.1f}" for acc in topk_acc2]
+
+    x = np.arange(len(bar_labels)) * 3
+    width = 1.3
+    margin = 0.03
+
+    plt.rcParams.update({'font.size': 18})
+    label_font = {'size':'14'}
+
+    fig, ax = plt.subplots(figsize=(16,4))
+    bars1 = ax.bar(x-width/2 - margin, topk_acc, width=width, label="Sketches", color=Color.BLUE)
+    bars2 = ax.bar(x+width/2 + margin, topk_acc2, width=width, label="Drawings", color=Color.GREY)
+    ax.bar_label(bars1, bar_labels, padding=2, **label_font)
+    ax.bar_label(bars2, bar_labels2, padding=2, **label_font)
+
+    if title: plt.title(title)
+    #else: plt.title("Top-k accuracy")
+    plt.ylabel("Accuracy (%)")
+    plt.xlabel("Top-k positions")
+    plt.legend()
+
+    plt.ylim([0, 100])
+
+    ax.grid(True, color=Color.LIGHT_GREY)
+    ax.set_xticks(x, labels)
     ax.tick_params(direction="in", length=0)
     ax.set_axisbelow(True)
     seaborn.despine(left=True, bottom=True, right=True, top=True)
@@ -224,6 +270,123 @@ def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=Non
 
 ### paper visuals
 
+def image_comparison(cols, images1, images2, images3=None, filepath=Path("test.png"), frame=[False,False,False]):
+    rows = 3 if images3 else 2
+    #heights = [1 for i in range(rows + 1)]
+    #heights[0] = 0
+    fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(cols * 2, rows * 2))#, gridspec_kw={'height_ratios': heights})
+
+    for i, axes_rows in enumerate(axes):
+        for j, ax in enumerate(axes_rows):
+            ax.axis(False)
+            if not i:
+                ax.imshow(images1[j - 1])
+            elif i == 1:
+                ax.imshow(images2[j - 1])
+            else:
+                ax.imshow(images3[j - 1])
+            if frame[i]: add_frame(ax)
+    plot(plt, filepath)
+
+def get_vector_sketch(path:Path):
+    if type(path) == str: path = Path(path)
+    sketch = semiSupervised_utils.load_tuple_representation(path)
+    return 255 - semiSupervised_utils.batch_rasterize_relative(torch.Tensor(sketch).unsqueeze(0)).squeeze().permute(1, 2, 0)
+
+def vector_sketches():
+    # vector_sketches folder from figures/experiments
+    image_paths = ['vector_sketches/image', 'vector_sketches/sketch', 'vector_sketches/photo']
+    images = [[], [], []]
+    for i, path in enumerate(image_paths):
+        paths = sorted(Path(path).glob("*.png"))
+        print(paths)
+        for p in paths:
+            images[i].append(Image.open(p))
+    image_comparison(5,images[0], images[1], images[2], Path("vector-sketches.png"))
+
+def parsed_sketches():
+    sketch_paths = ['airplane/n02691156_7989-8.png', 'apple/n07739125_8773-5.png', 'rhinoceros/n02391994_3673-5.png', 'windmill/n04587559_8803-6.png', 'teddy_bear/n04399382_6231-5.png']
+    images1 = []
+    images2 = []
+    for i in range(5):
+        images1.append(Image.open(Path("data/sketchy/sketches_png") / sketch_paths[i]))
+    for i in range(5):
+        sketch = semiSupervised_utils.load_tuple_representation(Path("data/sketchy/example_sketches") / f"{sketch_paths[i].split('.')[0].split('/')[1]}.json")['image']
+        rasterized_sketch = 255 - semiSupervised_utils.batch_rasterize_relative(torch.Tensor(sketch).unsqueeze(0)).squeeze().permute(1, 2, 0)
+        images2.append(rasterized_sketch)
+    
+    image_comparison(5, images1, images2, None, Path("parsed-sketches.png"))
+
+def sketch_samples():
+    # sketch_samples folder from figures/data
+    sketch_paths = sorted(Path("./sketch_samples").glob("*.png"))
+    image_paths = sorted(Path("./sketch_samples").glob("*.jpg"))
+
+    images1 = [Image.open(path) for path in image_paths]
+    images2 = [Image.open(path) for path in sketch_paths]
+    image_comparison(5, images1, images2, None, Path("sketch-samples.png"), frame=[0, 1, 0])
+
+def quickdraw_sketches():
+    #folder1, filepath = "./results/Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32/tuples_0/", Path("quickdraw-sketches.png")
+    parser = argparse.ArgumentParser(description='Photo2Sketch')
+
+    parser.add_argument('--setup', type=str, default='Sketchy')
+    parser.add_argument('--batchsize', type=int, default=64) # previous 1 / paper used 64
+    parser.add_argument('--nThreads', type=int, default=8)
+    parser.add_argument("-m")
+
+    parser.add_argument('--max_epoch', type=int, default=1)
+    parser.add_argument('--eval_freq_iter', type=int, default=1000)
+
+    parser.add_argument('--enc_rnn_size', type=int, default=256)
+    parser.add_argument('--dec_rnn_size', type=int, default=512)
+    parser.add_argument('--z_size', type=int, default=128)
+    parser.add_argument('--num_mixture', type=int, default=20)
+
+    parser.add_argument('--input_dropout_prob', type=float, default=0.9)
+    parser.add_argument('--output_dropout_prob', type=float, default=0.9)
+    parser.add_argument('--batch_size_sketch_rnn', type=int, default=100)
+
+    parser.add_argument('--kl_weight_start', type=float, default=0.01)
+    parser.add_argument('--kl_decay_rate', type=float, default=0.99995)
+    parser.add_argument('--kl_tolerance', type=float, default=0.2)
+    parser.add_argument('--kl_weight', type=float, default=1.0)
+
+    parser.add_argument('--learning_rate', type=float, default=0.0001)
+    parser.add_argument('--decay_rate', type=float, default=0.9999)
+    parser.add_argument('--min_learning_rate', type=float, default=0.00001)
+    parser.add_argument('--grad_clip', type=float, default=1.)
+
+    parser.add_argument('--save_rate', type=int, default=30)
+
+    hp = parser.parse_args()
+
+    model = utils.load_model("Photo2Sketch_QuickDrawDatasetV1_2022-12-20_10-13.pth", "Quickdraw", 'Photo2Sketch', max_seq_len=100, options=hp)
+    dataset = data_preparation.get_datasets("QuickdrawV1", size=1.0)[0]
+    print(len(dataset))
+    images1 = []
+    images2 = []
+    for i in range(5):
+        item = dataset.__getitem__(i * len(dataset)//5)
+        rgb_image = item['photo']
+        sketch_vector = item['sketch_vector'].unsqueeze(0).permute(1, 0, 2).float()
+        length_sketch = item['length'] - 1
+
+        backbone_feature, rgb_encoded_dist = model.Image_Encoder(rgb_image.unsqueeze(0))
+        rgb_encoded_dist_z_vector = rgb_encoded_dist.rsample()
+
+        photo2sketch_output, attention_plot = model.Sketch_Decoder(backbone_feature, rgb_encoded_dist_z_vector, sketch_vector, length_sketch + 1, isTrain=False)
+
+        rasterized_sketch = 255 - semiSupervised_utils.batch_rasterize_relative(photo2sketch_output).squeeze().permute(1, 2, 0)
+
+        images1.append(rgb_image.permute(1, 2, 0))
+        images2.append(rasterized_sketch)
+
+    print(len(images1), len(images2))
+
+    #images2 = get_vector_sketches(folder2)
+    image_comparison(5, images1, images2, None, Path("quickdraw-sketches.png"))
+
 # activation functions
 def plot_function(x_values, y_values, name, color=Color.BLUE, labels:Dict={'x':'x', 'y':'y'}, step_sizes:Dict={'x':1, 'y':1}, padding:Dict={'x':[0, 0], 'y':[1, 0]}):
     plt.figure(figsize=(4, 2))
@@ -263,24 +426,30 @@ def gelu():
     y_values = nn.GELU()(torch.Tensor(x_values)).tolist()
     plot_function(x_values, y_values, Path("../thesis/figures/foundations/GELU"))
 
+def topk_kaggle(inference_dict):
+    show_compared_topk_accuracy(inference_dict['sketch_stats']['topk_acc'], inference_dict['drawing_stats']['topk_acc'], Path("topk_acc.png"))
+
 if __name__ == '__main__':
     #show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', type=Path)
-    parser.add_argument('-m', '--method', default='visualize', choices=['visualize', 'sigmoid', 'relu', 'gelu'])
+    parser.add_argument('--path', type=Path, default=None)
+    parser.add_argument('-m', '--method', default='visualize', choices=['visualize', 'sigmoid', 'relu', 'gelu', 'parsed_sketches', 'quickdraw_sketches', 'vector_sketches', "sketch_samples", 'topk_kaggle'])
     args = parser.parse_args()
 
-    if args.method == 'visualize':
+    if args.path:
+        args.path = Path('results/') / args.path
         with open(args.path / 'training.json', 'r') as f:
             training_dict = json.load(f)
         try:
-            with open(args.path / 'inference_updated.json') as f:
+            with open(args.path / 'inference_sketchy.json') as f:
                 inference_dict = json.load(f)
         except:
             with open(args.path / 'inference.json') as f:
                 inference_dict = json.load(f)
 
+    if args.method == 'visualize':
         visualize(args.path, training_dict, inference_dict)
-
+    elif args.method == "topk_kaggle":
+        topk_kaggle(inference_dict)
     else:
         eval(args.method)()
