@@ -217,7 +217,7 @@ if __name__ == "__main__":
 
 
         # options have to be added
-        DATASET = "MixedDatasetV2"
+        #DATASET = "MixedDatasetV2"
         sketch_type = "contour_drawings"
         if 'Mixed' in DATASET:
             _, test_dataset = data_preparation.get_datasets(dataset=DATASET, size=data_dict['size'], sketch_type=sketch_type)

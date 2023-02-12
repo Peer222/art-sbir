@@ -164,7 +164,7 @@ print("with classification: ", with_classification)
 if LOSS_TYPE == 'euclidean':
     if with_classification: 
         if 'Sketchy' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification(margin=utils.MARGIN)
-        elif 'Mixed' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification(margin=utils.MARGIN, classification_weight=0.1)
+        elif 'Mixed' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification(margin=utils.MARGIN, classification_weight=0.01)
         elif 'Kaggle' in train_dataset.state_dict['dataset']: loss_fn = utils.TripletMarginLoss_with_classification2(margin=utils.MARGIN, classification_weight=0, classification_weight2=0.2)
     else: loss_fn = nn.TripletMarginLoss(margin=utils.MARGIN) # triplet_euclidean_loss
 elif LOSS_TYPE == 'cosine':

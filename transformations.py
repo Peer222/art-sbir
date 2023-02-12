@@ -61,15 +61,14 @@ def get_transformation(type='image_transform', version='V1'):
 
 def test_transform(options):
     image = Image.open('../transformations/test.png')
-    for i in range(10):
-        augmented_img = sketch_transformV2(image)
-        augmented_img.save(f'../transformations/transformed7_img_{i}.png')
+    for i in range(4):
+        augmented_img = transforms.ToPILImage()(sketch_transformV1(image))
+        augmented_img.save(f'./transformations/transformed_{i}.png')
 
 def dilate(options):
     kernel = np.ones((4, 4), np.uint8)
-    print("hi")
 
-    dir = Path("data/kaggle")
+    dir = Path("sketch_samples/")#Path("data/kaggle")
     img_dir = dir / options[0]
     print(img_dir)
     image_paths = list(img_dir.glob("*.png"))
