@@ -218,6 +218,8 @@ if __name__ == "__main__":
 
     # if size is changed sketch vector folder has to be deleted 
     dataset_train, dataset_test = data_preparation.get_datasets(dataset='VectorizedSketchyV1', size=0.1, img_format='jpg', img_type='photos', transform=None, max_erase_count=1, only_valid=True)
+    #for i in range(25):
+    #    print(str(dataset_test.photo_paths[i]))
 
     dataloader_train = DataLoader(dataset_train, batch_size=hp.batchsize, shuffle=True, num_workers=min(4, os.cpu_count()))
     dataloader_test = DataLoader(dataset_test, batch_size=hp.batchsize, shuffle=False, num_workers=min(4, os.cpu_count()))
