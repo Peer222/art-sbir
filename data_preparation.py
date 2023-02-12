@@ -14,7 +14,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 
-import visualization
+#import visualization
 import utils
 import semiSupervised_utils
 import transformations
@@ -105,7 +105,7 @@ class RetrievalDataset(Dataset):
             pos = round(random.randrange(len(self)))
             if raw: samples.append(self.load_image_sketch_tuple(pos))
             else: samples.append(self.__getitem__(pos))
-        visualization.show_triplets(samples)
+        #visualization.show_triplets(samples)
 
     @property
     def state_dict(self) -> Dict:
@@ -886,5 +886,6 @@ if __name__ == '__main__':
     #dataset2 = InferenceDataset(dataset.photo_paths)
     #print(len(dataset), len(dataset.sketch_paths), len(dataset.photo_paths), len(dataset2))
 
-    datasets = get_datasets("MixedDatasetV4")
+    datasets = get_datasets("QuickdrawV1", size=1.0)
+    print(len(datasets[0]) + len(datasets[1]))
     #print(datasets[0].state_dict)

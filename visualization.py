@@ -80,18 +80,20 @@ def show_triplets(triplets, filename:Path=None, mode='sketch') -> None:
     plot(plt, filename)
 
 
-def show_loss_curves(train_losses:List[float], test_losses:List[float], filename:Path=None, title="Loss curves", x_label='Epoch') -> None:
+def show_loss_curves(train_losses:List[float], test_losses:List[float], filename:Path=None, title=None, x_label='Epoch') -> None:
     if x_label == 'Iteration':
         epochs = np.arange(10000, (len(train_losses) + 1) * 10000, 10000)
     else:
         epochs = np.arange(1, len(train_losses) + 1, 1)
-    fig, ax = plt.subplots(figsize=(7,5))
+
+    
+    fig, ax = plt.subplots(figsize=(7,3.5))
 
     ax.plot(epochs, train_losses, c=Color.YELLOW, label="Train loss")
     ax.plot(epochs, test_losses, c=Color.BLUE, label="Test loss")
 
-    plt.title(title)
-    plt.xlabel(x_label)
+    if title: plt.title(title)
+    plt.xlabel("Epoch")# x_label)
     plt.ylabel("Loss")
     plt.legend()
 
@@ -101,6 +103,9 @@ def show_loss_curves(train_losses:List[float], test_losses:List[float], filename
     #ax.set_xlim(xmin=0)
     if x_label != 'Iteration':
         ax.set_xticks(np.arange(0, len(epochs) + 1, 1))
+    else:
+        ax.set_xticks(np.array([0.0, 0.33, 0.66, 1.0]) * epochs[-1])
+        ax.set_xticklabels(np.arange(0, 3 + 1, 1))
     seaborn.despine(left=True, bottom=True, right=True, top=True)
     #plt.grid(visible=True, color=Color.LIGHT_GREY)
 
@@ -222,7 +227,7 @@ def show_retrieval_samples(samples:List[Tuple[Path, List[Path]]], show_original:
 
                 sketch_name = sketch_path.stem.split("-")[1] if len(sketch_path.stem.split("-")) == 3 else sketch_path.stem.split("-")[0]
                 if image_path.stem.split('-')[0] == sketch_name:
-                    add_frame(ax, space=60, linewidth=2.0, color=Color.GREEN)
+                    add_frame(ax, space=20, linewidth=2.0, color=Color.GREEN)
 
 
     col_titles = ['Query', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
@@ -258,24 +263,25 @@ def visualize(folder_path:Path, training_dict:Dict=None, inference_dict:Dict=Non
     if training_dict: show_loss_curves(training_dict["train_losses"], training_dict['test_losses'], filename=folder_path / "loss_curves")
     if training_dict and training_dict['iteration_loss_frequency'] > 0: show_loss_curves(training_dict["itrain_losses"], training_dict["itest_losses"], filename=folder_path / "loss_curves_iter", x_label="Iteration")
     if len(inference_dict.keys()) > 3: # kaggle inference on drawings and sketches
-        show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')
         show_retrieval_samples(inference_dict['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples')
         show_retrieval_samples(inference_dict['retrieval_samples'], show_original=True, filename=folder_path / 'retrieval_samples_original') # works only with sketchy and anime_drawings
+        show_topk_accuracy(inference_dict['topk_acc'], filename=folder_path / 'topk_accuracy')    
     elif len(inference_dict.keys()) == 3:
-        show_topk_accuracy(inference_dict['drawing_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_drawings', title="Top_k accuracy (Drawings)")
-        show_topk_accuracy(inference_dict['sketch_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_sketches', title="Top_k accuracy (Sketches)")
         show_retrieval_samples(inference_dict['drawing_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_drawings', title="Retrieval samples (Drawings)")
         show_retrieval_samples(inference_dict['sketch_stats']['retrieval_samples'], show_original=False, filename=folder_path / 'retrieval_samples_sketches', title="Retrieval samples (Sketches)")
-
+        show_topk_accuracy(inference_dict['drawing_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_drawings', title="Top_k accuracy (Drawings)")
+        show_topk_accuracy(inference_dict['sketch_stats']['topk_acc'], filename=folder_path / 'topk_accuracy_sketches', title="Top_k accuracy (Sketches)")
 
 ### paper visuals
 
-def image_comparison(cols, images1, images2, images3=None, filepath=Path("test.png"), frame=[False,False,False]):
-    rows = 3 if images3 else 2
+def image_comparison(cols, images1, images2=None, images3=None, images4=None, filepath=Path("test.png"), frame=[False,False,False, False]):
+    rows = 0
+    for images in [images1, images2, images3, images4]:
+        if images: rows += 1
     #heights = [1 for i in range(rows + 1)]
     #heights[0] = 0
     fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(cols * 2, rows * 2))#, gridspec_kw={'height_ratios': heights})
-
+    if not isinstance(axes[0], np.ndarray): axes = [axes]
     for i, axes_rows in enumerate(axes):
         for j, ax in enumerate(axes_rows):
             ax.axis(False)
@@ -283,8 +289,10 @@ def image_comparison(cols, images1, images2, images3=None, filepath=Path("test.p
                 ax.imshow(images1[j - 1])
             elif i == 1:
                 ax.imshow(images2[j - 1])
-            else:
+            elif i == 2:
                 ax.imshow(images3[j - 1])
+            else:
+                ax.imshow(images4[j - 1])
             if frame[i]: add_frame(ax)
     plot(plt, filepath)
 
@@ -302,7 +310,7 @@ def vector_sketches():
         print(paths)
         for p in paths:
             images[i].append(Image.open(p))
-    image_comparison(5,images[0], images[1], images[2], Path("vector-sketches.png"))
+    image_comparison(5,images[0], images[1], images[2], filepath=Path("vector-sketches.png"))
 
 def parsed_sketches():
     sketch_paths = ['airplane/n02691156_7989-8.png', 'apple/n07739125_8773-5.png', 'rhinoceros/n02391994_3673-5.png', 'windmill/n04587559_8803-6.png', 'teddy_bear/n04399382_6231-5.png']
@@ -315,16 +323,52 @@ def parsed_sketches():
         rasterized_sketch = 255 - semiSupervised_utils.batch_rasterize_relative(torch.Tensor(sketch).unsqueeze(0)).squeeze().permute(1, 2, 0)
         images2.append(rasterized_sketch)
     
-    image_comparison(5, images1, images2, None, Path("parsed-sketches.png"))
+    image_comparison(5, images1, images2, filepath=Path("parsed-sketches.png"), frame=[0, 1, 0, 0])
 
 def sketch_samples():
     # sketch_samples folder from figures/data
-    sketch_paths = sorted(Path("./sketch_samples").glob("*.png"))
-    image_paths = sorted(Path("./sketch_samples").glob("*.jpg"))
+    sketch_paths = sorted(Path("./sketch_samples/sketches").glob("*.png"))
+    image_paths = sorted(Path("./sketch_samples/images").glob("*.jpg"))
 
     images1 = [Image.open(path) for path in image_paths]
     images2 = [Image.open(path) for path in sketch_paths]
-    image_comparison(5, images1, images2, None, Path("sketch-samples.png"), frame=[0, 1, 0])
+    image_comparison(5, images1, images2, filepath=Path("sketch-samples.png"), frame=[0, 1, 0])
+
+def synthetic_sketches():
+    image_paths = sorted(Path("./sketch_samples/images").glob("*.jpg"))
+    sketch_paths = sorted(Path("./sketch_samples/contour").glob("*.png"))
+    sketch_paths2 = sorted(Path("./sketch_samples/opensketch").glob("*.png"))
+    sketch_paths3 = sorted(Path("./sketch_samples/dilated").glob("*.png"))
+    images1 = [Image.open(path) for path in image_paths]
+    images2 = [Image.open(path) for path in sketch_paths]
+    images3 = [Image.open(path) for path in sketch_paths2]
+    images4 = [Image.open(path) for path in sketch_paths3]
+
+    images4 = [image.convert("RGB") for image in images4]
+    
+    image_comparison(5, images1, images2, images3, images4, Path("synthetic-sketches.png"), frame=[0, 1, 1, 1])
+
+def transformed_sketches():
+    # transformations folder from figures/methology
+    sketch_paths = sorted(Path("./transformations/").glob("transformed_*.png"))
+    sketch_paths.append(Path("./transformations/original.png"))
+    images1 = [Image.open(path) for path in sketch_paths]
+
+    image_comparison(5, images1, filepath=Path("transformed-sketches.png"), frame=[1])
+
+def synthetic_artworks():
+    # generated_artworks folder from figures/experiments
+    p = Path("./generated_artworks")
+    image_paths = sorted(path for path in p.glob("*.jpg") if '-' not in str(path))
+
+    images1 =[Image.open(path) for path in p.glob(f"{image_paths[0].stem}-*.jpg")]
+    images1.append(Image.open(image_paths[0]))
+    images2 =[Image.open(path) for path in p.glob(f"{image_paths[1].stem}-*.jpg")]
+    images2.append(Image.open(image_paths[1]))
+    images3 =[Image.open(path) for path in p.glob(f"{image_paths[2].stem}-*.jpg")]
+    images3.append(Image.open(image_paths[2]))
+
+    image_comparison(5, images1, images2, images3, filepath=Path("artwork-samples.png"))
 
 def quickdraw_sketches():
     #folder1, filepath = "./results/Photo2Sketch_QuickDrawDatasetV1_2022-12-15_00-32/tuples_0/", Path("quickdraw-sketches.png")
@@ -385,7 +429,7 @@ def quickdraw_sketches():
     print(len(images1), len(images2))
 
     #images2 = get_vector_sketches(folder2)
-    image_comparison(5, images1, images2, None, Path("quickdraw-sketches.png"))
+    image_comparison(5, images1, images2, filepath=Path("quickdraw-sketches.png"))
 
 # activation functions
 def plot_function(x_values, y_values, name, color=Color.BLUE, labels:Dict={'x':'x', 'y':'y'}, step_sizes:Dict={'x':1, 'y':1}, padding:Dict={'x':[0, 0], 'y':[1, 0]}):
@@ -433,7 +477,7 @@ if __name__ == '__main__':
     #show_loss_curves([0, 1, 2], [1, 2, 3], 'test.png')
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', type=Path, default=None)
-    parser.add_argument('-m', '--method', default='visualize', choices=['visualize', 'sigmoid', 'relu', 'gelu', 'parsed_sketches', 'quickdraw_sketches', 'vector_sketches', "sketch_samples", 'topk_kaggle'])
+    parser.add_argument('-m', '--method', default='visualize', choices=['visualize', 'sigmoid', 'relu', 'gelu', 'parsed_sketches', 'quickdraw_sketches', 'vector_sketches', "sketch_samples", 'synthetic_sketches', 'topk_kaggle', 'transformed_sketches', 'synthetic_artworks'])
     args = parser.parse_args()
 
     if args.path:
