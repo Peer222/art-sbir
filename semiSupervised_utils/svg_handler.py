@@ -32,7 +32,7 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
     if type(result_path) == str: result_path = Path(result_path)
 
     parsed_paths, shape, erase_flag = create_line_representation(filename)
-    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'max_len':max_length, 'reduce_factor': reduce_factor, 'image':[]} # (0.0, 0.0, 1,0,0) not sure wether needed or not | pen touched initial state due to paper ???
+    result = {'filename': str(filename), 'shape': shape, 'erase_flag': erase_flag, 'max_len':max_length, 'reduce_factor': reduce_factor, 'image':[]}
 
     x, y = 0, 0
 
@@ -64,6 +64,10 @@ def parse_svg(filename:str or Path, result_path:str or Path=None, reduce_factor=
     if max_length and len(result['image']) > max_length: result['image'] = result['image'][:max_length]
     # result['image'].append([0, 0, 0, 0, 1]) added after model and before loss calculation
 
+    # each pen state sets mode of next stroke instead of current stroke
+    for i in range(len(result['image']) - 1):
+        result['image'][i][2:] = result['image'][i + 1][2:]
+
     if result_path:    
         #pickle.dump(result, open(result_path / filename.stem, 'wb'))
         with open(result_path / (filename.stem + '.json'), 'w') as f:
@@ -94,7 +98,7 @@ def reshape_vectorSketch(vectorized_sketch, img_width=256, img_height=256):
     vector_sketch[:, 1] = vector_sketch[:, 1] / vectorized_sketch['shape'][1] * img_height
     vectorized_sketch['original_shape'] = vectorized_sketch['shape']
     vectorized_sketch['shape'] = (img_width, img_height)
-    vectorized_sketch['image'] = vector_sketch
+    vectorized_sketch['image'] = vector_sketch#[1:] # sketch starts at origin
     return vectorized_sketch
     
 

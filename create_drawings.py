@@ -31,9 +31,9 @@ def get_sketchy_classes(data_root, size:float=1):
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', required=True, type=str, choices=['contour', 'anime', 'opensketch'], help='Model name without suffix') # contour_style
 parser.add_argument('--model_dir', type=str, default='models/drawing_models', help='Where the model checkpoints are saved') # changed
-parser.add_argument('--results_dir', type=str, default='data/sketchy/', choices=['data/sketchy/', 'data/kaggle/'], help='where to save result images') # changed
+parser.add_argument('--results_dir', type=str, default='data/kaggle/', choices=['data/sketchy/', 'data/kaggle/'], help='where to save result images') # changed
 parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-parser.add_argument('--dataroot', type=str, default='data/sketchy/photos', choices=['data/sketchy/photos', 'TODO kaggle'], help='root directory of the dataset')
+parser.add_argument('--dataroot', type=str, default='data/kaggle/images', choices=['data/sketchy/photos', 'TODO kaggle'], help='root directory of the dataset')
 
 parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
 parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
@@ -72,7 +72,7 @@ with torch.no_grad():
     transforms_r = [transforms.Resize(int(opt.size), Image.BICUBIC), transforms.ToTensor()]
 
     if is_sketchy:
-        classes = get_sketchy_classes(data_root=data_dir, size=1)
+        classes = ['test']#get_sketchy_classes(data_root=data_dir, size=1)
 
         for img_cls in classes:
             data = UnpairedDepthDataset(data_dir / img_cls, '', opt, transforms_r=transforms_r, mode='test')

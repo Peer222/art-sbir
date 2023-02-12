@@ -63,6 +63,7 @@ class DecoderRNN2D(nn.Module):
     def forward(self, backbone_feature, z_vector, sketch_vector=None, seq_len=None, isTrain=True):
 
         batch_size = z_vector.shape[0]
+        # changed from [0, 0, 1, 0, 0] initial stroke shall be move instead of line
         start_token = torch.stack([torch.tensor([0, 0, 1, 0, 0])] * batch_size).unsqueeze(0).float().to(device)
 
 
@@ -284,7 +285,7 @@ class ModifiedResNet(nn.Module):
         super().__init__()
         self.output_dim = output_dim
         self.input_resolution = input_resolution
-
+        
         self.transform = transforms.Compose([
             transforms.Resize(size=input_resolution, interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
             transforms.CenterCrop(size=(input_resolution, input_resolution)),
@@ -292,6 +293,16 @@ class ModifiedResNet(nn.Module):
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
         ])
+        
+        """
+        self.transform = transforms.Compose([
+            transforms.Resize(size=(input_resolution, input_resolution), interpolation=transforms.InterpolationMode.BICUBIC, max_size=None, antialias=None),
+            #transforms.CenterCrop(size=(input_resolution, input_resolution)),
+            transforms.Lambda(lambda img : img.convert('RGB')),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))
+        ])
+        """
 
         self.trained_layers = []
 
@@ -350,15 +361,22 @@ class ModifiedResNet(nn.Module):
 
 
 class ModifiedResNet_with_classification(ModifiedResNet):
-    def __init__(self, layers, output_dim, heads=32, input_resolution=224, width=64, num_classes=125):
+    def __init__(self, layers, output_dim, heads=32, input_resolution=224, width=64, num_classes=125, num_classes2=0):
         super().__init__(layers, output_dim, heads, input_resolution, width)
 
+        self.num_classes = num_classes
+        self.num_classes2 = num_classes2
+
         self.classifier = nn.Linear(output_dim, num_classes)
+        if num_classes2 > 0: self.classifier2 = nn.Linear(output_dim, num_classes2)
 
     def forward(self, x):
         feature = super().forward(x)
         classes = self.classifier(feature)
-        return feature, classes
+        if self.num_classes2 == 0: return feature, classes
+        else:
+            classes2 = self.classifier2(feature)
+            return feature, classes, classes2
 
 
 class LayerNorm(nn.LayerNorm):
